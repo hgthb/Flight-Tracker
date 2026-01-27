@@ -3,49 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.20</title>
+    <title>Flight Tracking - Ver B.21</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
-        .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
-        h2 { color: #64ffda; text-align: center; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #8892b0; font-size: 0.9em; }
-        input { width: 100%; padding: 12px; background: #0a192f; border: 1px solid #233554; border-radius: 8px; color: #64ffda; font-size: 15px; box-sizing: border-box; outline: none; }
-        .btn-flex { display: flex; gap: 10px; }
-        button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        /* TỐI ƯU GIAO DIỆN COMPACT CHO ĐIỆN THOẠI */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; min-height: 100vh; margin: 0; }
+        .container { background: #112240; padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.6); width: 100%; max-width: 400px; border-top: 3px solid #64ffda; }
+        h2 { color: #64ffda; text-align: center; font-size: 1.2em; margin: 0 0 15px 0; letter-spacing: 1px; }
+        .input-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 3px; color: #8892b0; font-size: 0.85em; }
+        input { width: 100%; padding: 10px; background: #0a192f; border: 1px solid #233554; border-radius: 6px; color: #64ffda; font-size: 14px; box-sizing: border-box; outline: none; }
+        .btn-flex { display: flex; gap: 8px; margin-top: 15px; }
+        button { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s; }
         .btn-search { background: #64ffda; color: #0a192f; }
         .btn-search:hover { background: #45c7a9; }
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
+        .btn-alert.active { background: #f7d794; color: #0a192f; }
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
-        #result { margin-top: 20px; }
-        .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
+        
+        #result { margin-top: 15px; }
+        .flight-card { background: #233554; padding: 12px; border-radius: 8px; border-left: 3px solid #64ffda; line-height: 1.5; font-size: 0.95em; }
         .highlight { color: #64ffda; font-weight: bold; }
         .actual { color: #f7d794; font-weight: bold; }
-        .db-status { font-size: 0.8em; color: #8892b0; text-align: right; margin-top: 5px; font-style: italic; }
+        .db-status { font-size: 0.75em; color: #8892b0; text-align: right; margin-top: 5px; font-style: italic; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>✈️ PLEIKU RADAR PRO</h2>
+        <h2>✈️ FLIGHT TRACKING <span style="font-size:0.7em; opacity:0.7">- VER B.21</span></h2>
+        
         <div class="input-group">
-            <label>Số hiệu chuyến bay:</label>
+            <label>Số hiệu (Flight No):</label>
             <input type="text" id="flightCode" placeholder="VD: VN1422">
         </div>
+        
         <div class="input-group">
-            <label>Ngày tra cứu:</label>
+            <label>Ngày (Date):</label>
             <input type="date" id="flightDate">
         </div>
+
         <div class="btn-flex">
-            <button class="btn-search" id="btnSearch">QUÉT TỔNG LỰC</button>
+            <button class="btn-search" id="btnSearch">TRA CỨU</button>
             <button class="btn-alert" id="btnAlert">BẬT CẢNH BÁO</button>
         </div>
+        
         <div id="result"></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAvQGy3_PTvNpFFrjpG99EDxv8MMnebJnc",
@@ -68,21 +75,17 @@
             const dateInput = document.getElementById('flightDate').value;
             const resDiv = document.getElementById('result');
 
-            if (!code) return alert("Anh nhập số hiệu nhé!");
-            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang quét song song Radar & Lịch sử...</p>";
+            if (!code) return alert("Vui lòng nhập số hiệu!");
+            resDiv.innerHTML = "<p style='text-align:center; font-size:0.9em'>📡 Đang xử lý dữ liệu...</p>";
 
             try {
-                // CHIẾN THUẬT: Gọi cả 2 API cùng lúc
-                // 1. Gọi Live Data (để tìm Reg còn sót lại trong cache radar)
+                // 1. GỌI API ĐỂ LẤY DỮ LIỆU MỚI NHẤT
                 const livePromise = fetch(`https://airlabs.co/api/v9/flights?flight_iata=${code}&api_key=${airKey}`).then(r => r.json());
-                // 2. Gọi Schedule Data (để lấy giờ giấc chính xác)
                 const schedPromise = fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`).then(r => r.json());
-
-                // Chờ cả 2 trả về
                 const [liveData, schedData] = await Promise.all([livePromise, schedPromise]);
 
-                // Xử lý dữ liệu Lịch trình (Schedule) làm gốc
                 let f = null;
+                // Ưu tiên lấy từ Schedule để có giờ chuẩn
                 if (schedData.response && schedData.response.length > 0) {
                     f = schedData.response[0];
                     if (dateInput) {
@@ -92,31 +95,43 @@
                 }
 
                 if (f) {
-                    // --- BƯỚC QUAN TRỌNG: TÌM SỐ ĐĂNG KÝ ---
-                    let foundReg = null;
-
-                    // Ưu tiên 1: Tìm trong Live Data (Dữ liệu radar thường chính xác nhất về Reg)
+                    // --- BƯỚC 1: TÌM REG TỪ API (Nỗ lực tìm kiếm) ---
+                    let apiReg = null;
                     if (liveData.response && liveData.response.length > 0) {
-                        // Tìm đúng chuyến bay trong mớ Live Data
                         const liveFlight = liveData.response.find(l => l.flight_iata === code);
-                        if (liveFlight) {
-                            foundReg = liveFlight.reg_number || liveFlight.hex;
+                        if (liveFlight) apiReg = liveFlight.reg_number || liveFlight.hex;
+                    }
+                    if (!apiReg) apiReg = f.reg_number || f.hex || (f.aircraft ? f.aircraft.reg_number : null);
+
+                    // --- BƯỚC 2: KIỂM TRA DATABASE CŨ (Logic Bảo Toàn Dữ Liệu) ---
+                    const customID = `${f.flight_iata}_${f.dep_time.substring(0, 10)}`;
+                    const dbRef = ref(db);
+                    let finalReg = "N/A";
+                    let isRecovered = false;
+
+                    try {
+                        const snapshot = await get(child(dbRef, `flight_logs/${customID}`));
+                        if (snapshot.exists()) {
+                            const savedData = snapshot.val();
+                            // NẾU API KHÔNG CÓ (hoặc N/A) MÀ DB LẠI CÓ -> DÙNG CÁI CŨ
+                            if ((!apiReg || apiReg === "N/A") && savedData.reg && savedData.reg !== "N/A") {
+                                finalReg = savedData.reg;
+                                isRecovered = true; // Đánh dấu là đã khôi phục từ DB
+                            } else {
+                                finalReg = apiReg || "N/A";
+                            }
+                        } else {
+                            // Chưa có trong DB thì dùng API
+                            finalReg = apiReg || "N/A";
                         }
+                    } catch (err) {
+                        finalReg = apiReg || "N/A";
                     }
 
-                    // Ưu tiên 2: Nếu Live không có, tìm trong Schedule
-                    if (!foundReg) {
-                        foundReg = f.reg_number || f.hex;
-                    }
-
-                    // Ưu tiên 3: Nếu vẫn không có, tìm trong object con 'aircraft'
-                    if (!foundReg && f.aircraft) {
-                        foundReg = f.aircraft.reg_number;
-                    }
-
+                    // Chuẩn bị dữ liệu hiển thị
                     const info = {
                         flight: f.flight_iata,
-                        reg: foundReg || "N/A (Radar đã xóa dữ liệu)", // Nếu vẫn không tìm thấy thì đành chịu thua API
+                        reg: finalReg, 
                         route: `${f.dep_iata} ➔ ${f.arr_iata}`,
                         dep: f.dep_actual ? `${f.dep_actual.substring(11,16)} (Thực tế)` : `${f.dep_time.substring(11,16)} (Lịch)`,
                         arr: f.arr_actual ? `${f.arr_actual.substring(11,16)} (Thực tế)` : `${f.arr_time.substring(11,16)} (Dự kiến)`,
@@ -126,17 +141,16 @@
                     resDiv.innerHTML = `
                         <div class="flight-card">
                             <b style="font-size: 1.1em; color: #64ffda">✅ ${info.flight}</b><br>
-                            <span>Tàu bay:</span> <span class="highlight">${info.reg}</span><br>
+                            <span>Tàu bay:</span> <span class="highlight">${info.reg} ${isRecovered ? '(Lưu)' : ''}</span><br>
                             <span>Lộ trình:</span> ${info.route}<br>
                             <span>Cất cánh:</span> <span class="${f.dep_actual ? 'actual' : ''}">${info.dep}</span><br>
                             <span>Hạ cánh:</span> ${info.arr}<br>
                             <span>Trạng thái:</span> <span class="highlight">${info.status}</span>
-                            <div class="db-status" id="dbStatus">☁️ Đang đồng bộ Firebase...</div>
+                            <div class="db-status" id="dbStatus">☁️ Đang đồng bộ...</div>
                         </div>
                     `;
 
-                    // LƯU FIREBASE
-                    const customID = `${info.flight}_${f.dep_time.substring(0, 10)}`;
+                    // LƯU LẠI VÀO FIREBASE (Cập nhật thông tin mới nhất nhưng giữ Reg cũ nếu cần)
                     set(ref(db, 'flight_logs/' + customID), {
                         ...info,
                         search_date: f.dep_time.substring(0, 10),
@@ -153,12 +167,13 @@
                         btnAlert.disabled = false;
                         btnAlert.innerText = "BẬT CẢNH BÁO";
                     }
+
                 } else {
                     resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay.";
                 }
             } catch (e) { 
                 console.error(e);
-                resDiv.innerHTML = "❌ Lỗi kết nối hệ thống."; 
+                resDiv.innerHTML = "❌ Lỗi kết nối."; 
             }
         }
 

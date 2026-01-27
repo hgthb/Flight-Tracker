@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.14</title>
+    <title>Pleiku Flight Radar - Version B.15</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -14,12 +14,14 @@
         .btn-flex { display: flex; gap: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-search { background: #64ffda; color: #0a192f; }
+        .btn-search:hover { background: #45c7a9; }
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
         .btn-alert.active { background: #f7d794; color: #0a192f; }
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
         #result { margin-top: 20px; }
         .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
         .highlight { color: #64ffda; font-weight: bold; }
+        .actual { color: #f7d794; font-weight: bold; }
         .db-status { font-size: 0.8em; color: #8892b0; text-align: right; margin-top: 5px; font-style: italic; }
     </style>
 </head>
@@ -81,11 +83,14 @@
                         f = data.response.find(item => item.dep_time.startsWith(dateInput)) || f;
                     }
 
-                    // Lấy ngày chính xác từ dữ liệu để đặt tên Key
                     const actualDate = f.dep_time.substring(0, 10);
+                    
+                    // --- KHẮC PHỤC SỐ ĐĂNG KÝ: Thử lấy Reg, nếu không có lấy mã Hex ---
+                    const aircraftReg = f.reg_number || f.hex || "N/A (Chưa đồng bộ)";
+
                     const info = {
                         flight: f.flight_iata,
-                        reg: f.reg_number || "Đang xác minh", // Đã xóa số đăng ký ảo 9H-MLE
+                        reg: aircraftReg,
                         route: `${f.dep_iata} ➔ ${f.arr_iata}`,
                         dep: f.dep_actual ? `${f.dep_actual.substring(11,16)} (Thực tế)` : `${f.dep_time.substring(11,16)} (Lịch)`,
                         arr: f.arr_actual ? `${f.arr_actual.substring(11,16)} (Thực tế)` : `${f.arr_time.substring(11,16)} (Dự kiến)`,
@@ -105,20 +110,16 @@
                             </div>
                         `;
 
-                        // Tên Key mới: SốHiệu_Ngày (VD: VN1422_2026-01-27)
                         const customID = `${info.flight}_${actualDate}`;
-                        
-                        // Sử dụng set() thay vì push() để ghi đè hoặc tạo mới với ID xác định
                         set(ref(db, 'flight_logs/' + customID), {
                             ...info,
                             search_date: actualDate,
                             logged_at: new Date().toLocaleString("vi-VN")
                         }).then(() => {
                             const statusEl = document.getElementById('dbStatus');
-                            if (statusEl) statusEl.innerText = `✔️ Đã cập nhật Data: ${customID}`;
+                            if (statusEl) statusEl.innerText = `✔️ Đã ghi vào Data: ${customID}`;
                         });
 
-                        // Logic khóa nút Alert
                         if (info.status === 'LANDED') {
                             btnAlert.disabled = true;
                             btnAlert.innerText = "ĐÃ HẠ CÁNH";
@@ -133,7 +134,7 @@
                         stopAlert();
                     }
                 } else {
-                    document.getElementById('result').innerHTML = "⚠️ Không có dữ liệu.";
+                    document.getElementById('result').innerHTML = "⚠️ Không tìm thấy chuyến bay.";
                 }
             } catch (e) { console.error(e); }
         }

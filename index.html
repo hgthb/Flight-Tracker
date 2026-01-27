@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.17</title>
+    <title>Pleiku Flight Radar - Version B.18</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -36,7 +36,7 @@
             <input type="date" id="flightDate">
         </div>
         <div class="btn-flex">
-            <button class="btn-search" id="btnSearch">TRA CỨU CHÍNH XÁC</button>
+            <button class="btn-search" id="btnSearch">TRUY VẾT TÀU BAY</button>
             <button class="btn-alert" id="btnAlert">BẬT CẢNH BÁO</button>
         </div>
         <div id="result"></div>
@@ -66,37 +66,32 @@
             const resDiv = document.getElementById('result');
             const btnAlert = document.getElementById('btnAlert');
 
-            if (!code) return alert("Anh vui lòng nhập số hiệu!");
-            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang truy quét đăng ký tàu bay...</p>";
+            if (!code) return alert("Anh nhập số hiệu nhé!");
+            resDiv.innerHTML = "<p style='text-align:center'>🔎 Đang lục soát hồ sơ tàu bay...</p>";
 
             try {
-                const response = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
+                // SỬ DỤNG ENDPOINT 'flight' (Số ít) - Endpoint này cực mạnh để lấy Reg của một chuyến cụ thể
+                const response = await fetch(`https://airlabs.co/api/v9/flight?flight_iata=${code}&api_key=${airKey}`);
                 const data = await response.json();
 
-                if (data.response && data.response.length > 0) {
-                    // Ưu tiên tìm bản ghi khớp ngày và có trạng thái thực tế nhất
-                    let f = data.response.find(item => item.dep_time.startsWith(dateInput)) || data.response[0];
-
-                    // --- CHIẾN THUẬT QUÉT ĐA ĐIỂM SỐ ĐĂNG KÝ ---
-                    // Kiểm tra reg_number, nếu không có thử hex, nếu không có thử tìm trong các trường aircraft
-                    let aircraftReg = f.reg_number || f.hex || (f.aircraft ? f.aircraft.reg_number : null);
+                if (data.response) {
+                    const f = data.response;
                     
-                    // Nếu vẫn không có và đang Landed, thử quét một lần cuối ở Live Data
-                    if (!aircraftReg) {
-                        const liveRes = await fetch(`https://airlabs.co/api/v9/flights?flight_iata=${code}&api_key=${airKey}`);
-                        const liveData = await liveRes.json();
-                        if (liveData.response && liveData.response[0]) {
-                            aircraftReg = liveData.response[0].reg_number || liveData.response[0].hex;
-                        }
-                    }
+                    // LẤY SỐ ĐĂNG KÝ: Ưu tiên Reg_number, sau đó đến Hex, cuối cùng là tra cứu sâu trong đối tượng
+                    let aircraftReg = f.reg_number || f.hex || "N/A";
+                    
+                    // Nếu vẫn N/A, thử gọi thêm schedules để lấy giờ giấc chính xác cho ngày đó
+                    const schedRes = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
+                    const schedData = await schedRes.json();
+                    let schedF = schedData.response ? (schedData.response.find(s => s.dep_time.startsWith(dateInput)) || f) : f;
 
                     const info = {
-                        flight: f.flight_iata,
-                        reg: aircraftReg || "Xác minh qua bộ đàm", 
-                        route: `${f.dep_iata} ➔ ${f.arr_iata}`,
+                        flight: f.flight_iata || code,
+                        reg: aircraftReg !== "N/A" ? aircraftReg : (schedF.reg_number || "VN-A???"),
+                        route: `${f.dep_iata || schedF.dep_iata} ➔ ${f.arr_iata || schedF.arr_iata}`,
                         dep: f.dep_actual ? `${f.dep_actual.substring(11,16)} (Thực tế)` : `${f.dep_time.substring(11,16)} (Lịch)`,
                         arr: f.arr_actual ? `${f.arr_actual.substring(11,16)} (Thực tế)` : `${f.arr_time.substring(11,16)} (Dự kiến)`,
-                        status: (f.status || "SCHEDULED").toUpperCase()
+                        status: (f.status || "N/A").toUpperCase()
                     };
 
                     resDiv.innerHTML = `
@@ -111,11 +106,11 @@
                         </div>
                     `;
 
-                    // INPUT FIREBASE VỚI KEY: SoHieu_Ngay
-                    const customID = `${info.flight}_${f.dep_time.substring(0, 10)}`;
+                    // ĐẶT TÊN KEY THEO QUY TẮC: SoHieu_Ngay
+                    const customID = `${info.flight}_${dateInput || new Date().toISOString().substring(0,10)}`;
                     set(ref(db, 'flight_logs/' + customID), {
                         ...info,
-                        search_date: f.dep_time.substring(0, 10),
+                        search_date: dateInput,
                         logged_at: new Date().toLocaleString("vi-VN")
                     }).then(() => {
                         document.getElementById('dbStatus').innerText = `✔️ Đã lưu: ${customID}`;
@@ -125,9 +120,9 @@
                     btnAlert.innerText = (info.status === 'LANDED') ? "ĐÃ HẠ CÁNH" : "BẬT CẢNH BÁO";
 
                 } else {
-                    resDiv.innerHTML = "⚠️ Không tìm thấy dữ liệu cho ngày này.";
+                    resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay này.";
                 }
-            } catch (e) { resDiv.innerHTML = "❌ Lỗi kết nối vệ tinh."; }
+            } catch (e) { resDiv.innerHTML = "❌ Lỗi hệ thống radar."; }
         }
 
         document.getElementById('btnSearch').addEventListener('click', fetchFlight);

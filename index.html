@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.12</title>
+    <title>Pleiku Flight Radar - Version B.13</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -13,47 +13,39 @@
         input { width: 100%; padding: 12px; background: #0a192f; border: 1px solid #233554; border-radius: 8px; color: #64ffda; font-size: 15px; box-sizing: border-box; outline: none; }
         .btn-flex { display: flex; gap: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        /* Nút Tra cứu luôn giữ nguyên màu sắc */
         .btn-search { background: #64ffda; color: #0a192f; }
         .btn-search:hover { background: #45c7a9; }
-        
-        /* Nút Cảnh báo */
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
         .btn-alert.active { background: #f7d794; color: #0a192f; }
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
-        
         #result { margin-top: 20px; }
         .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
         .highlight { color: #64ffda; font-weight: bold; }
-        .actual { color: #f7d794; font-weight: bold; }
+        .db-status { font-size: 0.8em; color: #8892b0; text-align: right; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>✈️ PLEIKU RADAR PRO</h2>
-        
         <div class="input-group">
             <label>Số hiệu chuyến bay:</label>
             <input type="text" id="flightCode" placeholder="VD: VN1422">
         </div>
-
         <div class="input-group">
             <label>Ngày tra cứu:</label>
             <input type="date" id="flightDate">
         </div>
-
         <div class="btn-flex">
             <button class="btn-search" id="btnSearch">TRA CỨU</button>
             <button class="btn-alert" id="btnAlert">BẬT CẢNH BÁO</button>
         </div>
-        
         <div id="result"></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAvQGy3_PTvNpFFrjpG99EDxv8MMnebJnc",
@@ -72,18 +64,16 @@
         let alertActive = false;
         let alertInterval = null;
         const btnAlert = document.getElementById('btnAlert');
-        const btnSearch = document.getElementById('btnSearch');
 
         async function fetchFlight(isSilent = false) {
             const code = document.getElementById('flightCode').value.toUpperCase().trim();
             const date = document.getElementById('flightDate').value;
-            if (!code) return alert("Anh nhập số hiệu nhé!");
+            if (!code) return alert("Anh vui lòng nhập số hiệu!");
 
-            if (!isSilent) document.getElementById('result').innerHTML = "<p style='text-align:center'>📡 Đang quét dữ liệu...</p>";
+            if (!isSilent) document.getElementById('result').innerHTML = "<p style='text-align:center'>📡 Đang kết nối dữ liệu...</p>";
 
             try {
-                const url = `https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`;
-                const response = await fetch(url);
+                const response = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
                 const data = await response.json();
 
                 if (data.response && data.response.length > 0) {
@@ -110,10 +100,10 @@
                                 <span>Cất cánh:</span> <span class="${f.dep_actual ? 'actual' : ''}">${info.dep}</span><br>
                                 <span>Hạ cánh:</span> ${info.arr}<br>
                                 <span>Trạng thái:</span> <span class="highlight">${info.status}</span>
+                                <div class="db-status" id="dbStatus">☁️ Đang đồng bộ Firebase...</div>
                             </div>
                         `;
 
-                        // CHỈ KHÓA NÚT ALERT KHI LANDED
                         if (info.status === 'LANDED') {
                             btnAlert.disabled = true;
                             btnAlert.innerText = "ĐÃ HẠ CÁNH";
@@ -122,15 +112,26 @@
                             btnAlert.disabled = false;
                             btnAlert.innerText = alertActive ? "ĐANG THEO DÕI..." : "BẬT CẢNH BÁO";
                         }
-                        // NÚT SEARCH LUÔN ĐƯỢC GIỮ NGUYÊN (Mặc định enabled)
 
-                        push(ref(db, 'flight_logs'), {...info, search_date: date, logged_at: new Date().toLocaleString("vi-VN")});
+                        // INPUT DỮ LIỆU VÀO FIREBASE
+                        const newLogRef = push(ref(db, 'flight_logs'));
+                        set(newLogRef, {
+                            ...info,
+                            search_date: date,
+                            timestamp: Date.now(),
+                            logged_at: new Date().toLocaleString("vi-VN")
+                        }).then(() => {
+                            const statusEl = document.getElementById('dbStatus');
+                            if (statusEl) statusEl.innerText = "✔️ Đã lưu vào Data";
+                        });
                     }
 
                     if (alertActive && f.dep_actual) {
                         sendNotification(`✈️ ${info.flight} ĐÃ CẤT CÁNH!`, `Giờ thực tế: ${f.dep_actual.substring(11,16)}.`);
                         stopAlert();
                     }
+                } else {
+                    document.getElementById('result').innerHTML = "⚠️ Không có dữ liệu chuyến bay.";
                 }
             } catch (e) { console.error("Lỗi:", e); }
         }
@@ -148,7 +149,7 @@
             btnAlert.innerText = "BẬT CẢNH BÁO";
         }
 
-        btnSearch.addEventListener('click', () => fetchFlight());
+        document.getElementById('btnSearch').addEventListener('click', () => fetchFlight());
 
         btnAlert.addEventListener('click', () => {
             if (!alertActive) {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.18</title>
+    <title>Pleiku Flight Radar - Version B.19</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -14,7 +14,9 @@
         .btn-flex { display: flex; gap: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-search { background: #64ffda; color: #0a192f; }
+        .btn-search:hover { background: #45c7a9; }
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
+        .btn-alert.active { background: #f7d794; color: #0a192f; }
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
         #result { margin-top: 20px; }
         .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
@@ -36,7 +38,7 @@
             <input type="date" id="flightDate">
         </div>
         <div class="btn-flex">
-            <button class="btn-search" id="btnSearch">TRUY VẾT TÀU BAY</button>
+            <button class="btn-search" id="btnSearch">TRA CỨU DỮ LIỆU GỐC</button>
             <button class="btn-alert" id="btnAlert">BẬT CẢNH BÁO</button>
         </div>
         <div id="result"></div>
@@ -60,69 +62,84 @@
         const db = getDatabase(app);
         const airKey = "0bafa65a-71fb-4cd7-ada8-e8485b1b967f";
 
+        const btnAlert = document.getElementById('btnAlert');
+
         async function fetchFlight() {
             const code = document.getElementById('flightCode').value.toUpperCase().trim();
             const dateInput = document.getElementById('flightDate').value;
             const resDiv = document.getElementById('result');
-            const btnAlert = document.getElementById('btnAlert');
 
-            if (!code) return alert("Anh nhập số hiệu nhé!");
-            resDiv.innerHTML = "<p style='text-align:center'>🔎 Đang lục soát hồ sơ tàu bay...</p>";
+            if (!code) return alert("Anh vui lòng nhập số hiệu!");
+            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang quét dữ liệu gốc từ máy chủ...</p>";
 
             try {
-                // SỬ DỤNG ENDPOINT 'flight' (Số ít) - Endpoint này cực mạnh để lấy Reg của một chuyến cụ thể
-                const response = await fetch(`https://airlabs.co/api/v9/flight?flight_iata=${code}&api_key=${airKey}`);
+                // SỬ DỤNG ENDPOINT schedules - Đây là nguồn dữ liệu đầy đủ nhất cho các chuyến đã hạ cánh
+                const response = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
                 const data = await response.json();
 
-                if (data.response) {
-                    const f = data.response;
-                    
-                    // LẤY SỐ ĐĂNG KÝ: Ưu tiên Reg_number, sau đó đến Hex, cuối cùng là tra cứu sâu trong đối tượng
-                    let aircraftReg = f.reg_number || f.hex || "N/A";
-                    
-                    // Nếu vẫn N/A, thử gọi thêm schedules để lấy giờ giấc chính xác cho ngày đó
-                    const schedRes = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
-                    const schedData = await schedRes.json();
-                    let schedF = schedData.response ? (schedData.response.find(s => s.dep_time.startsWith(dateInput)) || f) : f;
+                if (data.response && data.response.length > 0) {
+                    // Lọc đúng ngày anh chọn
+                    let f = data.response[0];
+                    if (dateInput) {
+                        const match = data.response.find(item => item.dep_time.startsWith(dateInput));
+                        if (match) f = match;
+                    }
+
+                    // --- LOGIC LẤY SỐ ĐĂNG KÝ TRUNG THỰC ---
+                    // 1. Lấy reg_number (Ưu tiên số 1)
+                    // 2. Nếu không có, lấy hex (Mã kỹ thuật 24-bit của máy bay)
+                    // 3. Tuyệt đối không hiện chữ giả lập VN-A??? nữa
+                    let aircraftIdentity = "Chưa có dữ liệu";
+                    if (f.reg_number) {
+                        aircraftIdentity = f.reg_number;
+                    } else if (f.hex) {
+                        aircraftIdentity = `Hex: ${f.hex} (Chưa hiện Reg)`;
+                    }
 
                     const info = {
-                        flight: f.flight_iata || code,
-                        reg: aircraftReg !== "N/A" ? aircraftReg : (schedF.reg_number || "VN-A???"),
-                        route: `${f.dep_iata || schedF.dep_iata} ➔ ${f.arr_iata || schedF.arr_iata}`,
+                        flight: f.flight_iata,
+                        reg: aircraftIdentity, 
+                        route: `${f.dep_iata} ➔ ${f.arr_iata}`,
                         dep: f.dep_actual ? `${f.dep_actual.substring(11,16)} (Thực tế)` : `${f.dep_time.substring(11,16)} (Lịch)`,
                         arr: f.arr_actual ? `${f.arr_actual.substring(11,16)} (Thực tế)` : `${f.arr_time.substring(11,16)} (Dự kiến)`,
-                        status: (f.status || "N/A").toUpperCase()
+                        status: (f.status || "SCHEDULED").toUpperCase()
                     };
 
                     resDiv.innerHTML = `
                         <div class="flight-card">
                             <b style="font-size: 1.1em; color: #64ffda">✅ ${info.flight}</b><br>
-                            <span>Số đăng ký tàu:</span> <span class="highlight">${info.reg}</span><br>
+                            <span>Tàu bay:</span> <span class="highlight">${info.reg}</span><br>
                             <span>Lộ trình:</span> ${info.route}<br>
                             <span>Cất cánh:</span> <span class="${f.dep_actual ? 'actual' : ''}">${info.dep}</span><br>
                             <span>Hạ cánh:</span> ${info.arr}<br>
                             <span>Trạng thái:</span> <span class="highlight">${info.status}</span>
-                            <div class="db-status" id="dbStatus">☁️ Đang đồng bộ...</div>
+                            <div class="db-status" id="dbStatus">☁️ Đang đồng bộ Firebase...</div>
                         </div>
                     `;
 
-                    // ĐẶT TÊN KEY THEO QUY TẮC: SoHieu_Ngay
-                    const customID = `${info.flight}_${dateInput || new Date().toISOString().substring(0,10)}`;
+                    // LƯU VÀO FIREBASE (Key: SoHieu_Ngay)
+                    const customID = `${info.flight}_${f.dep_time.substring(0, 10)}`;
                     set(ref(db, 'flight_logs/' + customID), {
                         ...info,
-                        search_date: dateInput,
+                        search_date: f.dep_time.substring(0, 10),
                         logged_at: new Date().toLocaleString("vi-VN")
                     }).then(() => {
                         document.getElementById('dbStatus').innerText = `✔️ Đã lưu: ${customID}`;
                     });
 
-                    btnAlert.disabled = (info.status === 'LANDED');
-                    btnAlert.innerText = (info.status === 'LANDED') ? "ĐÃ HẠ CÁNH" : "BẬT CẢNH BÁO";
+                    // XỬ LÝ NÚT ALERT
+                    if (info.status === 'LANDED') {
+                        btnAlert.disabled = true;
+                        btnAlert.innerText = "ĐÃ HẠ CÁNH";
+                    } else {
+                        btnAlert.disabled = false;
+                        btnAlert.innerText = "BẬT CẢNH BÁO";
+                    }
 
                 } else {
-                    resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay này.";
+                    resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay (Kiểm tra lại Ngày/Số hiệu).";
                 }
-            } catch (e) { resDiv.innerHTML = "❌ Lỗi hệ thống radar."; }
+            } catch (e) { resDiv.innerHTML = "❌ Lỗi kết nối hệ thống."; }
         }
 
         document.getElementById('btnSearch').addEventListener('click', fetchFlight);

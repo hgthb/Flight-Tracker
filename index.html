@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Board - B.26</title>
+    <title>Pleiku Flight Board - B.27</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; padding: 10px; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
         .container { width: 100%; max-width: 500px; padding-bottom: 80px; }
         h2 { color: #64ffda; text-align: center; font-size: 1.2em; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
         .sub-title { text-align: center; color: #8892b0; font-size: 0.8em; margin-bottom: 15px; }
         
+        /* DATE PICKER BOX */
+        .date-box { background: #112240; padding: 10px; border-radius: 8px; border: 1px solid #233554; display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .date-input { flex: 1; background: #0a192f; border: 1px solid #233554; color: #64ffda; padding: 8px; border-radius: 4px; font-family: inherit; font-size: 0.95em; outline: none; }
+        .view-btn { background: #64ffda; color: #0a192f; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+        .view-btn:active { transform: scale(0.95); }
+
         /* TABS */
         .tabs { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
         .tab-btn { flex: 1; padding: 10px; background: #112240; border: 1px solid #233554; color: #8892b0; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.9em; }
@@ -19,18 +25,14 @@
         .flight-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
         .flight-card { background: #112240; padding: 12px; border-radius: 8px; border-left: 4px solid #8892b0; font-size: 0.9em; position: relative; display: flex; flex-direction: column; gap: 8px; }
         
-        .card-dep { border-left-color: #f7d794; } /* Vàng */
-        .card-arr { border-left-color: #64ffda; } /* Xanh */
+        .card-dep { border-left-color: #f7d794; } 
+        .card-arr { border-left-color: #64ffda; } 
 
-        /* LAYOUT CÁC DÒNG */
         .row { display: flex; justify-content: space-between; align-items: center; }
-        
         .f-code { font-weight: bold; font-size: 1.2em; color: #fff; }
         .f-status { font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
-        
         .f-route { color: #8892b0; font-size: 0.9em; flex: 1; } 
         
-        /* Chỉnh sửa phần hiển thị Số đăng bạ */
         .f-reg-box { text-align: right; font-size: 0.9em; }
         .reg-label { color: #8892b0; font-weight: normal; font-size: 0.9em; margin-right: 4px; }
         .f-reg { color: #64ffda; font-weight: bold; }
@@ -44,7 +46,7 @@
         .gate-val { color: #fff; font-weight: bold; }
 
         .status-landed { color: #64ffda; }
-        .status-active { color: #f7d794; } /* Màu vàng cho EN-ROUTE */
+        .status-active { color: #f7d794; }
         .status-scheduled { color: #8892b0; }
 
         .saved-badge { position: absolute; top: 5px; right: 5px; font-size: 0.6em; color: #8892b0; opacity: 0.5; }
@@ -56,8 +58,13 @@
 <body>
 
     <div class="container">
-        <h2>✈️ PLEIKU FLIGHT BOARD <span style="font-size:0.6em; opacity:0.6; display:block; font-weight:normal">Version B.26</span></h2>
-        <div class="sub-title" id="lastUpdate">Chờ cập nhật...</div>
+        <h2>✈️ PLEIKU FLIGHT BOARD <span style="font-size:0.6em; opacity:0.6; display:block; font-weight:normal">Version B.27</span></h2>
+        <div class="sub-title" id="lastUpdate">Vui lòng chọn ngày</div>
+
+        <div class="date-box">
+            <input type="date" id="selectedDate" class="date-input">
+            <button class="view-btn" onclick="loadAirportData()">XEM LỊCH BAY</button>
+        </div>
 
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('all')">TẤT CẢ</button>
@@ -66,7 +73,7 @@
         </div>
 
         <div id="flightList" class="flight-list">
-            <div class="loading">📡 Đang kết nối vệ tinh...</div>
+            <div class="loading" style="margin-top:5px">👇 Chọn ngày và nhấn nút Xem</div>
         </div>
     </div>
 
@@ -93,15 +100,22 @@
 
         let allFlights = [];
 
-        async function processSingleFlight(f, type) {
-            const dateStr = (type === 'dep' ? f.dep_time : f.arr_time).substring(0, 10);
-            const customID = `${f.flight_iata}_${dateStr}`;
+        // ĐẶT MẶC ĐỊNH NGÀY HÔM NAY
+        document.getElementById('selectedDate').valueAsDate = new Date();
+
+        async function processSingleFlight(f, type, selectedDateStr) {
+            // Lấy ngày của chuyến bay
+            const flightDate = (type === 'dep' ? f.dep_time : f.arr_time).substring(0, 10);
+            
+            // CHỈ XỬ LÝ NẾU TRÙNG KHỚP NGÀY ĐANG CHỌN
+            if (flightDate !== selectedDateStr) return null;
+
+            const customID = `${f.flight_iata}_${flightDate}`;
             
             let apiReg = f.reg_number || f.hex || (f.aircraft ? f.aircraft.reg_number : null);
             let finalReg = "N/A";
             let isRecovered = false;
 
-            // CHECK FIREBASE (Logic bảo toàn dữ liệu)
             try {
                 const snapshot = await get(child(ref(db), `flight_logs/${customID}`));
                 if (snapshot.exists()) {
@@ -117,19 +131,15 @@
                 }
             } catch (e) { finalReg = apiReg || "N/A"; }
 
-            // XỬ LÝ TRẠNG THÁI: Đổi ACTIVE -> EN-ROUTE
-            let displayStatus = (f.status || "SCHEDULED").toUpperCase();
-            if (displayStatus === 'ACTIVE') {
-                displayStatus = 'EN-ROUTE';
-            }
+            // Đổi ACTIVE thành EN-ROUTE
+            let status = (f.status || "SCHEDULED").toUpperCase();
+            if (status === 'ACTIVE') status = 'EN-ROUTE';
 
-            // Xử lý giờ
             const depTime = f.dep_actual ? f.dep_actual.substring(11, 16) : f.dep_time.substring(11, 16);
             const isDepReal = !!f.dep_actual;
             const arrTime = f.arr_actual ? f.arr_actual.substring(11, 16) : f.arr_time.substring(11, 16);
             const isArrReal = !!f.arr_actual;
 
-            // Xử lý Gate
             const term = (type === 'dep' ? f.dep_terminal : f.arr_terminal) || null;
             const gate = (type === 'dep' ? f.dep_gate : f.arr_gate) || null;
 
@@ -143,24 +153,28 @@
                 is_arr_real: isArrReal,
                 term: term,
                 gate: gate,
-                status: displayStatus, // Đã đổi tên
+                status: status,
                 type: type,
                 is_recovered: isRecovered,
-                search_date: dateStr,
+                search_date: flightDate,
                 raw_sort_time: type === 'dep' ? f.dep_time : f.arr_time,
                 logged_at: new Date().toLocaleString("vi-VN")
             };
 
             set(ref(db, `flight_logs/${customID}`), flightData);
-
             return flightData;
         }
 
         window.loadAirportData = async function() {
             const listDiv = document.getElementById('flightList');
-            listDiv.innerHTML = '<div class="loading">📡 Đang quét dữ liệu...</div>';
+            const pickedDate = document.getElementById('selectedDate').value; // YYYY-MM-DD
+            
+            if (!pickedDate) return alert("Vui lòng chọn ngày!");
+
+            listDiv.innerHTML = `<div class="loading">📡 Đang tải lịch bay ngày ${pickedDate}...</div>`;
             
             try {
+                // Gọi API Schedules
                 const depPromise = fetch(`https://airlabs.co/api/v9/schedules?dep_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
                 const arrPromise = fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
 
@@ -170,17 +184,21 @@
                 if (depData.response) depData.response.forEach(f => rawFlights.push({f, type: 'dep'}));
                 if (arrData.response) arrData.response.forEach(f => rawFlights.push({f, type: 'arr'}));
 
-                const processedPromises = rawFlights.map(item => processSingleFlight(item.f, item.type));
-                allFlights = await Promise.all(processedPromises);
+                // XỬ LÝ VÀ LỌC THEO NGÀY
+                const processedPromises = rawFlights.map(item => processSingleFlight(item.f, item.type, pickedDate));
+                // Lọc bỏ các kết quả null (khác ngày)
+                const results = await Promise.all(processedPromises);
+                allFlights = results.filter(item => item !== null);
 
+                // SẮP XẾP
                 allFlights.sort((a, b) => new Date(a.raw_sort_time) - new Date(b.raw_sort_time));
 
                 renderFlights('all');
-                document.getElementById('lastUpdate').innerText = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN')}`;
+                document.getElementById('lastUpdate').innerText = `Dữ liệu ngày: ${pickedDate} | Cập nhật lúc: ${new Date().toLocaleTimeString('vi-VN')}`;
 
             } catch (e) {
                 console.error(e);
-                listDiv.innerHTML = '<div class="loading">❌ Lỗi kết nối.</div>';
+                listDiv.innerHTML = '<div class="loading">❌ Lỗi kết nối hoặc không có dữ liệu ngày này.</div>';
             }
         }
 
@@ -197,17 +215,17 @@
             const filtered = allFlights.filter(f => filter === 'all' || f.type === filter);
 
             if (filtered.length === 0) {
-                listDiv.innerHTML = '<div class="loading">Không có chuyến bay nào.</div>';
+                listDiv.innerHTML = '<div class="loading">Không tìm thấy chuyến bay nào trong ngày này.</div>';
                 return;
             }
 
             filtered.forEach(f => {
                 const isLanded = f.status === 'LANDED';
-                const isEnRoute = f.status === 'EN-ROUTE'; // Đổi logic check active
+                const isEnRoute = f.status === 'EN-ROUTE';
                 
                 let statusColor = 'status-scheduled';
                 if (isLanded) statusColor = 'status-landed';
-                if (isEnRoute) statusColor = 'status-active'; // Vẫn dùng màu vàng
+                if (isEnRoute) statusColor = 'status-active';
 
                 const cardClass = f.type === 'dep' ? 'card-dep' : 'card-arr';
                 const recoveredBadge = f.is_recovered ? '<span class="saved-badge">DB</span>' : '';
@@ -244,7 +262,8 @@
                 `;
             });
         }
-
+        
+        // Tự động tải dữ liệu hôm nay khi mở web
         loadAirportData();
     </script>
 </body>

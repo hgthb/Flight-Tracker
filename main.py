@@ -2,18 +2,19 @@ import requests
 from datetime import datetime, timedelta
 
 # ==========================================
-# VERSION: A.19
-# DESCRIPTION: Bản cưỡng bức đồng bộ (Force Sync) & Sửa lỗi -7h
+# VERSION: A.20
+# DESCRIPTION: Bản cưỡng bức đồng bộ Terminal & Sửa lỗi lệch -7h
 # ==========================================
 
-# DÒNG KIỂM TRA: Nếu chạy mà không thấy A.19, nghĩa là Terminal vẫn đang đọc file cũ
-print("\n" + "🚀 " + "═"*45)
-print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.19")
-print("   TRẠNG THÁI: ĐÃ ĐỒNG BỘ VÀ FIX LỆCH -7H")
-print("🚀 " + "═"*45 + "\n")
+# Dòng này để anh kiểm tra ngay lập tức xem đã nhận bản mới chưa
+print("\n" + "📡 " + "═"*45)
+print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.20")
+print("   TRẠNG THÁI: ĐÃ ĐỒNG BỘ TRỰC TIẾP")
+print("📡 " + "═"*45 + "\n")
 
 class PleikuFlightRadar:
     def __init__(self):
+        # API Key của anh Hưng
         self.api_key = "cba47be516a88ec3301d9f54f28b5d7e"
         self.url = "http://api.aviationstack.com/v1/flights"
 
@@ -31,9 +32,8 @@ class PleikuFlightRadar:
             def fix_vietnam_time(time_str):
                 if not time_str: return "N/A"
                 try:
-                    # Chuyển đổi chuỗi ISO thành datetime
+                    # Dữ liệu từ API đang bị cộng dư 7 tiếng, chúng ta trừ lại
                     dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-                    # TRỪ 7 TIẾNG: Để bù đắp sai số từ máy chủ API đối với giờ VN
                     dt_fixed = dt - timedelta(hours=7)
                     return dt_fixed.strftime("%H:%M ngày %d/%m/%Y")
                 except:
@@ -44,13 +44,13 @@ class PleikuFlightRadar:
                     f"✈ Số đăng ký (Reg): {f['aircraft'].get('registration') if f.get('aircraft') else 'N/A'}\n"
                     f"✈ Trạng thái: {f['flight_status'].upper()}\n"
                     f"✈ Lộ trình: {f['departure']['iata']} ✈ {f['arrival']['iata']}\n"
-                    f"✈ Giờ cất cánh (VN): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
-                    f"✈ Giờ hạ cánh (VN): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
+                    f"✈ Giờ cất cánh (Đã fix): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
+                    f"✈ Giờ hạ cánh (Đã fix): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
                     f"✈ Nhà ga (Đi/Đến): T{f['departure'].get('terminal') or '-'} / T{f['arrival'].get('terminal') or '-'}\n"
                     f"✈ Cổng (Đi/Đến): {f['departure'].get('gate') or '-'} / {f['arrival'].get('gate') or '-'}\n"
                     f"──────────────────────────────────────────")
         except Exception as e:
-            return f"❌ Lỗi kết nối: {e}"
+            return f"❌ Lỗi: {e}"
 
 if __name__ == "__main__":
     radar = PleikuFlightRadar()

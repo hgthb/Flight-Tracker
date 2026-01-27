@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.19</title>
+    <title>Pleiku Flight Radar - Version B.20</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -16,7 +16,6 @@
         .btn-search { background: #64ffda; color: #0a192f; }
         .btn-search:hover { background: #45c7a9; }
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
-        .btn-alert.active { background: #f7d794; color: #0a192f; }
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
         #result { margin-top: 20px; }
         .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
@@ -38,7 +37,7 @@
             <input type="date" id="flightDate">
         </div>
         <div class="btn-flex">
-            <button class="btn-search" id="btnSearch">TRA CỨU DỮ LIỆU GỐC</button>
+            <button class="btn-search" id="btnSearch">QUÉT TỔNG LỰC</button>
             <button class="btn-alert" id="btnAlert">BẬT CẢNH BÁO</button>
         </div>
         <div id="result"></div>
@@ -69,36 +68,55 @@
             const dateInput = document.getElementById('flightDate').value;
             const resDiv = document.getElementById('result');
 
-            if (!code) return alert("Anh vui lòng nhập số hiệu!");
-            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang quét dữ liệu gốc từ máy chủ...</p>";
+            if (!code) return alert("Anh nhập số hiệu nhé!");
+            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang quét song song Radar & Lịch sử...</p>";
 
             try {
-                // SỬ DỤNG ENDPOINT schedules - Đây là nguồn dữ liệu đầy đủ nhất cho các chuyến đã hạ cánh
-                const response = await fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`);
-                const data = await response.json();
+                // CHIẾN THUẬT: Gọi cả 2 API cùng lúc
+                // 1. Gọi Live Data (để tìm Reg còn sót lại trong cache radar)
+                const livePromise = fetch(`https://airlabs.co/api/v9/flights?flight_iata=${code}&api_key=${airKey}`).then(r => r.json());
+                // 2. Gọi Schedule Data (để lấy giờ giấc chính xác)
+                const schedPromise = fetch(`https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`).then(r => r.json());
 
-                if (data.response && data.response.length > 0) {
-                    // Lọc đúng ngày anh chọn
-                    let f = data.response[0];
+                // Chờ cả 2 trả về
+                const [liveData, schedData] = await Promise.all([livePromise, schedPromise]);
+
+                // Xử lý dữ liệu Lịch trình (Schedule) làm gốc
+                let f = null;
+                if (schedData.response && schedData.response.length > 0) {
+                    f = schedData.response[0];
                     if (dateInput) {
-                        const match = data.response.find(item => item.dep_time.startsWith(dateInput));
+                        const match = schedData.response.find(item => item.dep_time.startsWith(dateInput));
                         if (match) f = match;
                     }
+                }
 
-                    // --- LOGIC LẤY SỐ ĐĂNG KÝ TRUNG THỰC ---
-                    // 1. Lấy reg_number (Ưu tiên số 1)
-                    // 2. Nếu không có, lấy hex (Mã kỹ thuật 24-bit của máy bay)
-                    // 3. Tuyệt đối không hiện chữ giả lập VN-A??? nữa
-                    let aircraftIdentity = "Chưa có dữ liệu";
-                    if (f.reg_number) {
-                        aircraftIdentity = f.reg_number;
-                    } else if (f.hex) {
-                        aircraftIdentity = `Hex: ${f.hex} (Chưa hiện Reg)`;
+                if (f) {
+                    // --- BƯỚC QUAN TRỌNG: TÌM SỐ ĐĂNG KÝ ---
+                    let foundReg = null;
+
+                    // Ưu tiên 1: Tìm trong Live Data (Dữ liệu radar thường chính xác nhất về Reg)
+                    if (liveData.response && liveData.response.length > 0) {
+                        // Tìm đúng chuyến bay trong mớ Live Data
+                        const liveFlight = liveData.response.find(l => l.flight_iata === code);
+                        if (liveFlight) {
+                            foundReg = liveFlight.reg_number || liveFlight.hex;
+                        }
+                    }
+
+                    // Ưu tiên 2: Nếu Live không có, tìm trong Schedule
+                    if (!foundReg) {
+                        foundReg = f.reg_number || f.hex;
+                    }
+
+                    // Ưu tiên 3: Nếu vẫn không có, tìm trong object con 'aircraft'
+                    if (!foundReg && f.aircraft) {
+                        foundReg = f.aircraft.reg_number;
                     }
 
                     const info = {
                         flight: f.flight_iata,
-                        reg: aircraftIdentity, 
+                        reg: foundReg || "N/A (Radar đã xóa dữ liệu)", // Nếu vẫn không tìm thấy thì đành chịu thua API
                         route: `${f.dep_iata} ➔ ${f.arr_iata}`,
                         dep: f.dep_actual ? `${f.dep_actual.substring(11,16)} (Thực tế)` : `${f.dep_time.substring(11,16)} (Lịch)`,
                         arr: f.arr_actual ? `${f.arr_actual.substring(11,16)} (Thực tế)` : `${f.arr_time.substring(11,16)} (Dự kiến)`,
@@ -117,7 +135,7 @@
                         </div>
                     `;
 
-                    // LƯU VÀO FIREBASE (Key: SoHieu_Ngay)
+                    // LƯU FIREBASE
                     const customID = `${info.flight}_${f.dep_time.substring(0, 10)}`;
                     set(ref(db, 'flight_logs/' + customID), {
                         ...info,
@@ -135,11 +153,13 @@
                         btnAlert.disabled = false;
                         btnAlert.innerText = "BẬT CẢNH BÁO";
                     }
-
                 } else {
-                    resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay (Kiểm tra lại Ngày/Số hiệu).";
+                    resDiv.innerHTML = "⚠️ Không tìm thấy chuyến bay.";
                 }
-            } catch (e) { resDiv.innerHTML = "❌ Lỗi kết nối hệ thống."; }
+            } catch (e) { 
+                console.error(e);
+                resDiv.innerHTML = "❌ Lỗi kết nối hệ thống."; 
+            }
         }
 
         document.getElementById('btnSearch').addEventListener('click', fetchFlight);

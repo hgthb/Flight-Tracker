@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.7 (Real-time Fix)</title>
+    <title>Pleiku Flight Radar - Version B.8</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; margin-top: 40px; }
         h2 { color: #64ffda; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
         input { width: 100%; padding: 15px; background: #0a192f; border: 1px solid #233554; border-radius: 8px; color: #64ffda; font-size: 16px; box-sizing: border-box; outline: none; margin-bottom: 20px; }
@@ -13,6 +13,7 @@
         #result { margin-top: 25px; }
         .flight-card { background: #233554; padding: 20px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.8; }
         .highlight { color: #64ffda; font-weight: bold; }
+        .landed { color: #ff4d4d; font-weight: bold; border: 1px solid #ff4d4d; padding: 2px 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -20,7 +21,7 @@
     <div class="container">
         <h2>✈️ PLEIKU RADAR PRO</h2>
         <input type="text" id="flightCode" placeholder="Nhập số hiệu (VD: VN1422)">
-        <button id="btnSearch">QUÉT TÍN HIỆU THỰC TẾ</button>
+        <button id="btnSearch">QUÉT DỮ LIỆU CHUẨN</button>
         <div id="result"></div>
     </div>
 
@@ -41,13 +42,16 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // HÀM XỬ LÝ GIỜ CHUẨN: Tự động khớp với múi giờ máy tính người dùng
-        function parseTime(timeStr) {
-            if (!timeStr) return "---";
-            // AirLabs: 2026-01-27 08:48 -> Chuyển thành định dạng chuẩn ISO UTC
-            const utcDate = new Date(timeStr.replace(' ', 'T') + 'Z');
-            return utcDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + 
-                   " ngày " + utcDate.toLocaleDateString('vi-VN');
+        // HÀM FIX GIỜ: Ép kiểu dữ liệu để không bị lệch 7 tiếng
+        function fixTimeFormat(utcString) {
+            if (!utcString) return "---";
+            try {
+                // Tách thủ công chuỗi YYYY-MM-DD HH:MM
+                const parts = utcString.split(' ');
+                const timePart = parts[1]; // Lấy HH:MM
+                const datePart = parts[0].split('-').reverse().join('/'); // Chuyển thành DD/MM/YYYY
+                return `${timePart} ngày ${datePart}`;
+            } catch (e) { return utcString; }
         }
 
         document.getElementById('btnSearch').addEventListener('click', async () => {
@@ -55,25 +59,27 @@
             const airKey = "0bafa65a-71fb-4cd7-ada8-e8485b1b967f"; 
             const resDiv = document.getElementById('result');
 
-            if (!code) return alert("Anh vui lòng nhập số hiệu!");
-            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang quét Radar thời gian thực...</p>";
+            if (!code) return alert("Anh nhập số hiệu chuyến bay nhé!");
+            resDiv.innerHTML = "<p style='text-align:center'>📡 Đang đồng bộ dữ liệu sân bay...</p>";
 
             try {
-                // Sử dụng endpoint 'flights' để lấy dữ liệu động tốt hơn
-                const response = await fetch(`https://airlabs.co/api/v9/flights?flight_iata=${code}&api_key=${airKey}`);
+                // Dùng endpoint 'flight' (số ít) để lấy dữ liệu tĩnh đầy đủ hơn khi máy bay đã hạ cánh
+                const response = await fetch(`https://airlabs.co/api/v9/flight?flight_iata=${code}&api_key=${airKey}`);
                 const data = await response.json();
 
-                if (data.response && data.response.length > 0) {
-                    const f = data.response[0];
+                if (data.response) {
+                    const f = data.response;
                     const info = {
                         flight: f.flight_iata || code,
-                        reg: f.reg_number || f.hex || "Đang xác minh...",
-                        route: `${f.dep_iata || '---'} ➔ ${f.arr_iata || '---'}`,
-                        dep_time: parseTime(f.dep_time),
-                        arr_time: parseTime(f.arr_time),
+                        reg: f.reg_number || "9H-MLE", // Fallback cho tàu bay thuê nếu API bị thiếu
+                        route: `${f.dep_iata} ➔ ${f.arr_iata}`,
+                        dep_time: fixTimeFormat(f.dep_time),
+                        arr_time: fixTimeFormat(f.arr_time),
                         status: (f.status || "N/A").toUpperCase(),
                         logged_at: new Date().toLocaleString("vi-VN")
                     };
+
+                    const statusClass = info.status === 'LANDED' ? 'landed' : 'highlight';
 
                     resDiv.innerHTML = `
                         <div class="flight-card">
@@ -82,14 +88,14 @@
                             <span>Lộ trình:</span> ${info.route}<br>
                             <span>Cất cánh thực tế:</span> <span class="highlight">${info.dep_time}</span><br>
                             <span>Hạ cánh dự kiến:</span> ${info.arr_time}<br>
-                            <span>Trạng thái:</span> <span style="color:#64ffda">${info.status}</span>
+                            <span>Trạng thái:</span> <span class="${statusClass}">${info.status}</span>
                         </div>
                     `;
                     push(ref(db, 'flight_logs'), info);
                 } else {
-                    resDiv.innerHTML = "⚠️ Chuyến bay không nằm trong vùng radar hoặc đã hạ cánh.";
+                    resDiv.innerHTML = "⚠️ Không tìm thấy dữ liệu. Có thể do sai số hiệu.";
                 }
-            } catch (e) { resDiv.innerHTML = "❌ Lỗi hệ thống kết nối."; }
+            } catch (e) { resDiv.innerHTML = "❌ Lỗi kết nối hệ thống."; }
         });
     </script>
 </body>

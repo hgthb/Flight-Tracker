@@ -2,13 +2,14 @@ import requests
 from datetime import datetime, timedelta
 
 # ==========================================
-# VERSION: A.16
-# DESCRIPTION: Hiệu chỉnh trừ 7 tiếng để khớp với giờ thực tế Việt Nam
+# VERSION: A.17
+# DESCRIPTION: Bản ổn định - Hiệu chỉnh thời gian -7h và hiển thị hệ thống
 # ==========================================
 
+# Dấu hiệu để nhận biết code đã được cập nhật thành công
 print("\n" + "🚀 " + "═"*45)
-print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.16")
-print("   TRẠNG THÁI: ĐÃ FIX LỖI LỆCH 7 TIẾNG")
+print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.17")
+print("   TRẠNG THÁI: ĐÃ CẬP NHẬT NỘI DUNG MỚI NHẤT")
 print("🚀 " + "═"*45 + "\n")
 
 class PleikuFlightRadar:
@@ -27,13 +28,11 @@ class PleikuFlightRadar:
             
             f = data['data'][0]
             
-            # HÀM XỬ LÝ GIỜ: Trừ đi 7 tiếng để về đúng giờ Việt Nam
             def fix_vietnam_time(time_str):
                 if not time_str: return "N/A"
                 try:
-                    # Chuyển đổi chuỗi ISO thành datetime
                     dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-                    # TRỪ ĐI 7 TIẾNG để sửa lỗi hiển thị sai của API
+                    # Hiệu chỉnh trừ 7 tiếng theo quan sát của anh Hưng
                     dt_fixed = dt - timedelta(hours=7)
                     return dt_fixed.strftime("%H:%M ngày %d/%m/%Y")
                 except:
@@ -44,8 +43,8 @@ class PleikuFlightRadar:
                     f"✈ Số đăng ký (Reg): {f['aircraft'].get('registration') if f.get('aircraft') else 'N/A'}\n"
                     f"✈ Trạng thái: {f['flight_status'].upper()}\n"
                     f"✈ Lộ trình: {f['departure']['iata']} ✈ {f['arrival']['iata']}\n"
-                    f"✈ Giờ cất cánh (Đã fix): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
-                    f"✈ Giờ hạ cánh (Đã fix): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
+                    f"✈ Giờ cất cánh (Thực tế): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
+                    f"✈ Giờ hạ cánh (Dự kiến): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
                     f"✈ Nhà ga (Ga đi/Ga đến): T{f['departure'].get('terminal') or '-'} / T{f['arrival'].get('terminal') or '-'}\n"
                     f"✈ Cổng (Gate đi/Gate đến): {f['departure'].get('gate') or '-'} / {f['arrival'].get('gate') or '-'}\n"
                     f"──────────────────────────────────────────")
@@ -54,6 +53,7 @@ class PleikuFlightRadar:
 
 if __name__ == "__main__":
     radar = PleikuFlightRadar()
-    code = input("✈ Nhập số hiệu chuyến bay (VD: VN1422): ").strip().upper()
+    print(f"⏰ Giờ hệ thống hiện tại: {datetime.now().strftime('%H:%M:%S')}")
+    code = input("✈ Nhập số hiệu chuyến bay: ").strip().upper()
     if code:
         print(radar.fetch_flight(code))

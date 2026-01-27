@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.11</title>
+    <title>Pleiku Flight Radar - Version B.12</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -13,11 +13,15 @@
         input { width: 100%; padding: 12px; background: #0a192f; border: 1px solid #233554; border-radius: 8px; color: #64ffda; font-size: 15px; box-sizing: border-box; outline: none; }
         .btn-flex { display: flex; gap: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        /* Nút Tra cứu luôn giữ nguyên màu sắc */
         .btn-search { background: #64ffda; color: #0a192f; }
+        .btn-search:hover { background: #45c7a9; }
+        
+        /* Nút Cảnh báo */
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
         .btn-alert.active { background: #f7d794; color: #0a192f; }
-        /* Style cho nút khi bị vô hiệu hóa */
         .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
+        
         #result { margin-top: 20px; }
         .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
         .highlight { color: #64ffda; font-weight: bold; }
@@ -68,8 +72,8 @@
         let alertActive = false;
         let alertInterval = null;
         const btnAlert = document.getElementById('btnAlert');
+        const btnSearch = document.getElementById('btnSearch');
 
-        // --- HÀM TRA CỨU CHÍNH ---
         async function fetchFlight(isSilent = false) {
             const code = document.getElementById('flightCode').value.toUpperCase().trim();
             const date = document.getElementById('flightDate').value;
@@ -98,7 +102,6 @@
                     };
 
                     if (!isSilent) {
-                        // HIỂN THỊ KẾT QUẢ
                         document.getElementById('result').innerHTML = `
                             <div class="flight-card">
                                 <b style="font-size: 1.1em; color: #64ffda">✅ ${info.flight}</b><br>
@@ -110,7 +113,7 @@
                             </div>
                         `;
 
-                        // --- LOGIC KHÓA NÚT ALERT ---
+                        // CHỈ KHÓA NÚT ALERT KHI LANDED
                         if (info.status === 'LANDED') {
                             btnAlert.disabled = true;
                             btnAlert.innerText = "ĐÃ HẠ CÁNH";
@@ -119,13 +122,13 @@
                             btnAlert.disabled = false;
                             btnAlert.innerText = alertActive ? "ĐANG THEO DÕI..." : "BẬT CẢNH BÁO";
                         }
+                        // NÚT SEARCH LUÔN ĐƯỢC GIỮ NGUYÊN (Mặc định enabled)
 
                         push(ref(db, 'flight_logs'), {...info, search_date: date, logged_at: new Date().toLocaleString("vi-VN")});
                     }
 
-                    // GỬI THÔNG BÁO NẾU CẤT CÁNH TRONG KHI ĐANG THEO DÕI
                     if (alertActive && f.dep_actual) {
-                        sendNotification(`✈️ ${info.flight} ĐÃ CẤT CÁNH!`, `Thời gian thực tế: ${f.dep_actual.substring(11,16)}.`);
+                        sendNotification(`✈️ ${info.flight} ĐÃ CẤT CÁNH!`, `Giờ thực tế: ${f.dep_actual.substring(11,16)}.`);
                         stopAlert();
                     }
                 }
@@ -145,7 +148,7 @@
             btnAlert.innerText = "BẬT CẢNH BÁO";
         }
 
-        document.getElementById('btnSearch').addEventListener('click', () => fetchFlight());
+        btnSearch.addEventListener('click', () => fetchFlight());
 
         btnAlert.addEventListener('click', () => {
             if (!alertActive) {
@@ -155,7 +158,6 @@
                         btnAlert.classList.add('active');
                         btnAlert.innerText = "ĐANG THEO DÕI...";
                         alertInterval = setInterval(() => fetchFlight(true), 120000); 
-                        alert("Hệ thống sẽ báo cho anh khi máy bay cất cánh!");
                     }
                 });
             } else {
@@ -163,4 +165,7 @@
             }
         });
 
-        document.getElementById('
+        document.getElementById('flightDate').valueAsDate = new Date();
+    </script>
+</body>
+</html>

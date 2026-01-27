@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Smart Dashboard - B.23</title>
+    <title>Pleiku Detail Dashboard - B.24</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; padding: 10px; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 500px; }
+        .container { width: 100%; max-width: 500px; padding-bottom: 80px; }
         h2 { color: #64ffda; text-align: center; font-size: 1.2em; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
         .sub-title { text-align: center; color: #8892b0; font-size: 0.8em; margin-bottom: 15px; }
         
@@ -15,22 +15,30 @@
         .tab-btn { flex: 1; padding: 10px; background: #112240; border: 1px solid #233554; color: #8892b0; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.9em; }
         .tab-btn.active { background: #64ffda; color: #0a192f; border-color: #64ffda; }
 
-        /* DANH SÁCH */
-        .flight-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-        .flight-card { background: #112240; padding: 12px; border-radius: 8px; border-left: 4px solid #8892b0; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; position: relative; }
+        /* DANH SÁCH CHI TIẾT */
+        .flight-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .flight-card { background: #112240; padding: 12px; border-radius: 8px; border-left: 4px solid #8892b0; font-size: 0.9em; position: relative; display: flex; flex-direction: column; gap: 8px; }
         
         .card-dep { border-left-color: #f7d794; } /* Vàng */
         .card-arr { border-left-color: #64ffda; } /* Xanh */
+
+        /* LAYOUT CÁC DÒNG */
+        .row { display: flex; justify-content: space-between; align-items: center; }
         
-        .f-info { display: flex; flex-direction: column; gap: 2px; }
-        .f-code { font-weight: bold; font-size: 1.1em; color: #fff; }
-        .f-reg { font-size: 0.85em; color: #64ffda; font-weight: bold; }
-        .f-route { color: #8892b0; font-size: 0.85em; }
+        .f-code { font-weight: bold; font-size: 1.2em; color: #fff; }
+        .f-status { font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
         
-        .f-meta { text-align: right; display: flex; flex-direction: column; gap: 2px; }
-        .f-time { font-weight: bold; font-size: 1.1em; }
-        .f-status { font-size: 0.8em; text-transform: uppercase; }
+        .f-route { color: #8892b0; font-size: 0.9em; }
+        .f-reg { color: #64ffda; font-weight: bold; font-size: 0.9em; }
         
+        .time-box { display: flex; gap: 15px; font-size: 0.9em; background: #0a192f; padding: 5px 8px; border-radius: 4px; width: 100%; justify-content: space-around; }
+        .t-label { color: #8892b0; font-size: 0.8em; margin-right: 3px; }
+        .t-val { font-weight: bold; color: #fff; }
+        .t-val.actual { color: #f7d794; }
+
+        .gate-info { font-size: 0.8em; color: #8892b0; display: flex; gap: 10px; justify-content: flex-end; }
+        .gate-val { color: #fff; font-weight: bold; }
+
         .status-landed { color: #64ffda; }
         .status-active { color: #f7d794; }
         .status-scheduled { color: #8892b0; }
@@ -44,7 +52,7 @@
 <body>
 
     <div class="container">
-        <h2>✈️ PLEIKU DASHBOARD</h2>
+        <h2>✈️ PLEIKU FLIGHT BOARD</h2>
         <div class="sub-title" id="lastUpdate">Chờ cập nhật...</div>
 
         <div class="tabs">
@@ -54,7 +62,7 @@
         </div>
 
         <div id="flightList" class="flight-list">
-            <div class="loading">📡 Đang kết nối vệ tinh & đồng bộ dữ liệu...</div>
+            <div class="loading">📡 Đang kết nối vệ tinh...</div>
         </div>
     </div>
 
@@ -81,22 +89,19 @@
 
         let allFlights = [];
 
-        // HÀM XỬ LÝ LOGIC B.21 CHO TỪNG CHUYẾN BAY
         async function processSingleFlight(f, type) {
-            // Chuẩn bị dữ liệu thô từ API
             const dateStr = (type === 'dep' ? f.dep_time : f.arr_time).substring(0, 10);
-            const customID = `${f.flight_iata}_${dateStr}`; // Key chuẩn: Flight_Date
+            const customID = `${f.flight_iata}_${dateStr}`;
             
             let apiReg = f.reg_number || f.hex || (f.aircraft ? f.aircraft.reg_number : null);
             let finalReg = "N/A";
             let isRecovered = false;
 
+            // 1. LOGIC B.21: BẢO VỆ SỐ ĐĂNG KÝ
             try {
-                // KIỂM TRA FIREBASE (Logic Bảo Toàn Dữ Liệu)
                 const snapshot = await get(child(ref(db), `flight_logs/${customID}`));
                 if (snapshot.exists()) {
                     const savedData = snapshot.val();
-                    // Nếu API mất Reg mà Database có -> Dùng Database
                     if ((!apiReg || apiReg === "N/A") && savedData.reg && savedData.reg !== "N/A") {
                         finalReg = savedData.reg;
                         isRecovered = true;
@@ -106,26 +111,40 @@
                 } else {
                     finalReg = apiReg || "N/A";
                 }
-            } catch (e) {
-                finalReg = apiReg || "N/A";
-            }
+            } catch (e) { finalReg = apiReg || "N/A"; }
 
-            // Dữ liệu chuẩn hóa để hiển thị & Lưu
+            // 2. CHUẨN BỊ DỮ LIỆU HIỂN THỊ CHI TIẾT
+            // Giờ cất cánh (Dep)
+            const depTime = f.dep_actual ? f.dep_actual.substring(11, 16) : f.dep_time.substring(11, 16);
+            const isDepReal = !!f.dep_actual; // Có phải giờ thực tế không?
+
+            // Giờ hạ cánh (Arr)
+            const arrTime = f.arr_actual ? f.arr_actual.substring(11, 16) : f.arr_time.substring(11, 16);
+            const isArrReal = !!f.arr_actual;
+
+            // Terminal & Gate
+            const term = (type === 'dep' ? f.dep_terminal : f.arr_terminal) || null;
+            const gate = (type === 'dep' ? f.dep_gate : f.arr_gate) || null;
+
             const flightData = {
                 flight: f.flight_iata,
                 reg: finalReg,
-                route: type === 'dep' ? `✈️ Đến ${f.arr_iata}` : `Từ ${f.dep_iata} ✈️`,
-                raw_time: type === 'dep' ? f.dep_time : f.arr_time,
-                display_time: (type === 'dep' ? (f.dep_actual || f.dep_time) : (f.arr_actual || f.arr_time)).substring(11, 16),
+                route: type === 'dep' ? `PXU ➔ ${f.arr_iata}` : `${f.dep_iata} ➔ PXU`,
+                dep_display: depTime,
+                arr_display: arrTime,
+                is_dep_real: isDepReal,
+                is_arr_real: isArrReal,
+                term: term,
+                gate: gate,
                 status: (f.status || "SCHEDULED").toUpperCase(),
                 type: type,
                 is_recovered: isRecovered,
                 search_date: dateStr,
+                raw_sort_time: type === 'dep' ? f.dep_time : f.arr_time,
                 logged_at: new Date().toLocaleString("vi-VN")
             };
 
-            // LƯU NGƯỢC LẠI VÀO FIREBASE (flight_logs)
-            // Không cần await để tốc độ hiển thị nhanh hơn
+            // Lưu Firebase (Không await để nhanh)
             set(ref(db, `flight_logs/${customID}`), flightData);
 
             return flightData;
@@ -133,10 +152,9 @@
 
         window.loadAirportData = async function() {
             const listDiv = document.getElementById('flightList');
-            listDiv.innerHTML = '<div class="loading">📡 Đang quét toàn bộ dữ liệu sân bay...</div>';
+            listDiv.innerHTML = '<div class="loading">📡 Đang quét dữ liệu chi tiết...</div>';
             
             try {
-                // 1. GỌI API API AIRLABS (Lịch trình ĐI và ĐẾN)
                 const depPromise = fetch(`https://airlabs.co/api/v9/schedules?dep_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
                 const arrPromise = fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
 
@@ -146,21 +164,18 @@
                 if (depData.response) depData.response.forEach(f => rawFlights.push({f, type: 'dep'}));
                 if (arrData.response) arrData.response.forEach(f => rawFlights.push({f, type: 'arr'}));
 
-                // 2. XỬ LÝ LOGIC B.21 CHO TỪNG CHUYẾN (Chạy song song)
-                // Đây là bước quan trọng: Nó sẽ check Firebase cho từng chuyến bay 1 lúc
                 const processedPromises = rawFlights.map(item => processSingleFlight(item.f, item.type));
                 allFlights = await Promise.all(processedPromises);
 
-                // 3. SẮP XẾP THEO GIỜ
-                allFlights.sort((a, b) => new Date(a.raw_time) - new Date(b.raw_time));
+                // Sắp xếp
+                allFlights.sort((a, b) => new Date(a.raw_sort_time) - new Date(b.raw_sort_time));
 
-                // 4. HIỂN THỊ
                 renderFlights('all');
                 document.getElementById('lastUpdate').innerText = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN')}`;
 
             } catch (e) {
                 console.error(e);
-                listDiv.innerHTML = '<div class="loading">❌ Lỗi hệ thống. Vui lòng thử lại.</div>';
+                listDiv.innerHTML = '<div class="loading">❌ Lỗi kết nối.</div>';
             }
         }
 
@@ -190,21 +205,34 @@
                 if (isActive) statusColor = 'status-active';
 
                 const cardClass = f.type === 'dep' ? 'card-dep' : 'card-arr';
-                const regDisplay = f.reg !== "N/A" ? f.reg : "";
                 const recoveredBadge = f.is_recovered ? '<span class="saved-badge">DB</span>' : '';
+
+                // HTML cho Terminal/Gate
+                let gateHtml = '';
+                if (f.term || f.gate) {
+                    gateHtml = `
+                        <div class="gate-info">
+                            ${f.term ? `<span>Term: <span class="gate-val">${f.term}</span></span>` : ''}
+                            ${f.gate ? `<span>Gate: <span class="gate-val">${f.gate}</span></span>` : ''}
+                        </div>`;
+                }
 
                 listDiv.innerHTML += `
                     <div class="flight-card ${cardClass}">
                         ${recoveredBadge}
-                        <div class="f-info">
-                            <div class="f-code">${f.flight}</div>
-                            <div class="f-reg">${regDisplay}</div>
-                            <div class="f-route">${f.route}</div>
-                        </div>
-                        <div class="f-meta">
-                            <div class="f-time ${f.type === 'dep' && isActive ? 'status-active' : ''}">${f.display_time}</div>
+                        <div class="row">
+                            <div class="f-code">${f.flight || 'N/A'}</div>
                             <div class="f-status ${statusColor}">${f.status}</div>
                         </div>
+                        <div class="row">
+                            <div class="f-route">${f.route}</div>
+                            <div class="f-reg">${f.reg}</div>
+                        </div>
+                        <div class="time-box">
+                            <div><span class="t-label">Cất cánh:</span><span class="t-val ${f.is_dep_real ? 'actual' : ''}">${f.dep_display}</span></div>
+                            <div><span class="t-label">Hạ cánh:</span><span class="t-val ${f.is_arr_real ? 'actual' : ''}">${f.arr_display}</span></div>
+                        </div>
+                        ${gateHtml}
                     </div>
                 `;
             });

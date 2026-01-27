@@ -1,66 +1,59 @@
-import os
-import sys
-
-# Tự động cài đặt thư viện requests nếu thiếu
-try:
-    import requests
-except ImportError:
-    print("...Đang chuẩn bị thư viện kết nối (requests)...")
-    os.system('pip install requests')
-    import requests
-
+import requests
 from datetime import datetime, timedelta
 
 # ==========================================
-# VERSION: A.13
-# DESCRIPTION: Bản tự hành (Self-running) cho GitHub Codespaces
+# VERSION: A.16
+# DESCRIPTION: Hiệu chỉnh trừ 7 tiếng để khớp với giờ thực tế Việt Nam
 # ==========================================
 
-print("\n" + "="*50)
-print("   HỆ THỐNG TRA CỨU CHUYẾN BAY - PHIÊN BẢN A.13")
-print("   TRẠNG THÁI: ĐÃ SẴN SÀNG")
-print("="*50 + "\n")
+print("\n" + "🚀 " + "═"*45)
+print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.16")
+print("   TRẠNG THÁI: ĐÃ FIX LỖI LỆCH 7 TIẾNG")
+print("🚀 " + "═"*45 + "\n")
 
-class FlightApp:
+class PleikuFlightRadar:
     def __init__(self):
         self.api_key = "cba47be516a88ec3301d9f54f28b5d7e"
         self.url = "http://api.aviationstack.com/v1/flights"
 
-    def get_data(self, flight_no):
-        params = {'access_key': self.api_key, 'flight_iata': flight_no}
+    def fetch_flight(self, iata_code):
+        params = {'access_key': self.api_key, 'flight_iata': iata_code}
         try:
-            print(f"📡 Đang truy vấn dữ liệu từ vệ tinh cho chuyến: {flight_no}...")
             r = requests.get(self.url, params=params)
             data = r.json()
-
+            
             if not data or 'data' not in data or len(data['data']) == 0:
-                return "❌ Không tìm thấy thông tin. Có thể chuyến bay chưa được cấp phép hoặc sai số hiệu."
-
+                return f"⚠️ Không tìm thấy dữ liệu cho chuyến {iata_code}."
+            
             f = data['data'][0]
             
-            # Xử lý giờ địa phương (GMT+7)
-            raw_time = f['departure'].get('scheduled')
-            vn_time = "N/A"
-            if raw_time:
-                dt = datetime.fromisoformat(raw_time.replace('Z', '+00:00')) + timedelta(hours=7)
-                vn_time = dt.strftime("%H:%M ngày %d/%m/%Y")
+            # HÀM XỬ LÝ GIỜ: Trừ đi 7 tiếng để về đúng giờ Việt Nam
+            def fix_vietnam_time(time_str):
+                if not time_str: return "N/A"
+                try:
+                    # Chuyển đổi chuỗi ISO thành datetime
+                    dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+                    # TRỪ ĐI 7 TIẾNG để sửa lỗi hiển thị sai của API
+                    dt_fixed = dt - timedelta(hours=7)
+                    return dt_fixed.strftime("%H:%M ngày %d/%m/%Y")
+                except:
+                    return time_str
 
-            return (f"\n✈ THÔNG TIN CHUYẾN BAY: {f['flight']['iata']}\n"
+            return (f"✅ THÔNG TIN CHUYẾN BAY: {f['flight']['iata']}\n"
                     f"──────────────────────────────────────────\n"
-                    f"▶ Số đăng ký tàu bay: {f['aircraft'].get('registration') if f.get('aircraft') else 'Chưa cập nhật'}\n"
-                    f"▶ Tình trạng thực tế: {f.get('flight_status', 'N/A').upper()}\n"
-                    f"▶ Lộ trình: {f['departure'].get('iata')} ✈ {f['arrival'].get('iata')}\n"
-                    f"▶ Giờ cất cánh (VN): {vn_time}\n"
-                    f"▶ Nhà ga/Cổng đi: T{f['departure'].get('terminal') or '-'} / G{f['departure'].get('gate') or '-'}\n"
-                    f"▶ Nhà ga/Cổng đến: T{f['arrival'].get('terminal') or '-'} / G{f['arrival'].get('gate') or '-'}\n"
+                    f"✈ Số đăng ký (Reg): {f['aircraft'].get('registration') if f.get('aircraft') else 'N/A'}\n"
+                    f"✈ Trạng thái: {f['flight_status'].upper()}\n"
+                    f"✈ Lộ trình: {f['departure']['iata']} ✈ {f['arrival']['iata']}\n"
+                    f"✈ Giờ cất cánh (Đã fix): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
+                    f"✈ Giờ hạ cánh (Đã fix): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
+                    f"✈ Nhà ga (Ga đi/Ga đến): T{f['departure'].get('terminal') or '-'} / T{f['arrival'].get('terminal') or '-'}\n"
+                    f"✈ Cổng (Gate đi/Gate đến): {f['departure'].get('gate') or '-'} / {f['arrival'].get('gate') or '-'}\n"
                     f"──────────────────────────────────────────")
         except Exception as e:
-            return f"❌ Lỗi kết nối: {str(e)}"
+            return f"❌ Lỗi kết nối: {e}"
 
 if __name__ == "__main__":
-    app = FlightApp()
-    f_code = input("👉 Nhập số hiệu chuyến bay (VD: VJ392): ").strip().upper()
-    if f_code:
-        print(app.get_data(f_code))
-    else:
-        print("⚠ Anh chưa nhập số hiệu chuyến bay!")
+    radar = PleikuFlightRadar()
+    code = input("✈ Nhập số hiệu chuyến bay (VD: VN1422): ").strip().upper()
+    if code:
+        print(radar.fetch_flight(code))

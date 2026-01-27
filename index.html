@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Radar - Version B.10</title>
+    <title>Pleiku Flight Radar - Version B.11</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; min-height: 100vh; margin: 0; }
         .container { background: #112240; padding: 25px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 450px; border-top: 4px solid #64ffda; }
@@ -16,8 +16,10 @@
         .btn-search { background: #64ffda; color: #0a192f; }
         .btn-alert { background: transparent; border: 1px solid #f7d794; color: #f7d794; }
         .btn-alert.active { background: #f7d794; color: #0a192f; }
+        /* Style cho nút khi bị vô hiệu hóa */
+        .btn-alert:disabled { border-color: #444; color: #444; cursor: not-allowed; opacity: 0.5; }
         #result { margin-top: 20px; }
-        .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; font-size: 0.95em; }
+        .flight-card { background: #233554; padding: 15px; border-radius: 10px; border-left: 4px solid #64ffda; line-height: 1.6; }
         .highlight { color: #64ffda; font-weight: bold; }
         .actual { color: #f7d794; font-weight: bold; }
     </style>
@@ -65,6 +67,7 @@
 
         let alertActive = false;
         let alertInterval = null;
+        const btnAlert = document.getElementById('btnAlert');
 
         // --- HÀM TRA CỨU CHÍNH ---
         async function fetchFlight(isSilent = false) {
@@ -75,13 +78,11 @@
             if (!isSilent) document.getElementById('result').innerHTML = "<p style='text-align:center'>📡 Đang quét dữ liệu...</p>";
 
             try {
-                // Sử dụng endpoint schedules để hỗ trợ chọn ngày
                 const url = `https://airlabs.co/api/v9/schedules?flight_iata=${code}&api_key=${airKey}`;
                 const response = await fetch(url);
                 const data = await response.json();
 
                 if (data.response && data.response.length > 0) {
-                    // Lọc đúng ngày anh chọn (nếu có)
                     let f = data.response[0];
                     if (date) {
                         f = data.response.find(item => item.dep_time.startsWith(date)) || f;
@@ -97,6 +98,7 @@
                     };
 
                     if (!isSilent) {
+                        // HIỂN THỊ KẾT QUẢ
                         document.getElementById('result').innerHTML = `
                             <div class="flight-card">
                                 <b style="font-size: 1.1em; color: #64ffda">✅ ${info.flight}</b><br>
@@ -107,19 +109,29 @@
                                 <span>Trạng thái:</span> <span class="highlight">${info.status}</span>
                             </div>
                         `;
+
+                        // --- LOGIC KHÓA NÚT ALERT ---
+                        if (info.status === 'LANDED') {
+                            btnAlert.disabled = true;
+                            btnAlert.innerText = "ĐÃ HẠ CÁNH";
+                            if (alertActive) stopAlert();
+                        } else {
+                            btnAlert.disabled = false;
+                            btnAlert.innerText = alertActive ? "ĐANG THEO DÕI..." : "BẬT CẢNH BÁO";
+                        }
+
                         push(ref(db, 'flight_logs'), {...info, search_date: date, logged_at: new Date().toLocaleString("vi-VN")});
                     }
 
-                    // KIỂM TRA ALERT: Nếu đã cất cánh thực tế
+                    // GỬI THÔNG BÁO NẾU CẤT CÁNH TRONG KHI ĐANG THEO DÕI
                     if (alertActive && f.dep_actual) {
-                        sendNotification(`✈️ ${info.flight} ĐÃ CẤT CÁNH!`, `Giờ thực tế: ${f.dep_actual.substring(11,16)}. Hãy chuẩn bị đón tại sân bay.`);
+                        sendNotification(`✈️ ${info.flight} ĐÃ CẤT CÁNH!`, `Thời gian thực tế: ${f.dep_actual.substring(11,16)}.`);
                         stopAlert();
                     }
                 }
             } catch (e) { console.error("Lỗi:", e); }
         }
 
-        // --- XỬ LÝ THÔNG BÁO ---
         function sendNotification(title, body) {
             if (Notification.permission === "granted") {
                 new Notification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/784/784844.png" });
@@ -129,23 +141,21 @@
         function stopAlert() {
             alertActive = false;
             clearInterval(alertInterval);
-            document.getElementById('btnAlert').classList.remove('active');
-            document.getElementById('btnAlert').innerText = "BẬT CẢNH BÁO";
+            btnAlert.classList.remove('active');
+            btnAlert.innerText = "BẬT CẢNH BÁO";
         }
 
         document.getElementById('btnSearch').addEventListener('click', () => fetchFlight());
 
-        document.getElementById('btnAlert').addEventListener('click', () => {
+        btnAlert.addEventListener('click', () => {
             if (!alertActive) {
                 Notification.requestPermission().then(perm => {
                     if (perm === "granted") {
                         alertActive = true;
-                        document.getElementById('btnAlert').classList.add('active');
-                        document.getElementById('btnAlert').innerText = "ĐANG THEO DÕI...";
-                        alertInterval = setInterval(() => fetchFlight(true), 120000); // Quét mỗi 2 phút
-                        alert("Hệ thống sẽ báo cho anh ngay khi máy bay cất cánh!");
-                    } else {
-                        alert("Anh cần cho phép thông báo trên trình duyệt nhé!");
+                        btnAlert.classList.add('active');
+                        btnAlert.innerText = "ĐANG THEO DÕI...";
+                        alertInterval = setInterval(() => fetchFlight(true), 120000); 
+                        alert("Hệ thống sẽ báo cho anh khi máy bay cất cánh!");
                     }
                 });
             } else {
@@ -153,8 +163,4 @@
             }
         });
 
-        // Set mặc định ngày hôm nay vào ô input
-        document.getElementById('flightDate').valueAsDate = new Date();
-    </script>
-</body>
-</html>
+        document.getElementById('

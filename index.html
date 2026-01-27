@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Detail Dashboard - B.24</title>
+    <title>Pleiku Flight Board - B.25</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; padding: 10px; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
         .container { width: 100%; max-width: 500px; padding-bottom: 80px; }
@@ -28,10 +28,14 @@
         .f-code { font-weight: bold; font-size: 1.2em; color: #fff; }
         .f-status { font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
         
-        .f-route { color: #8892b0; font-size: 0.9em; }
-        .f-reg { color: #64ffda; font-weight: bold; font-size: 0.9em; }
+        .f-route { color: #8892b0; font-size: 0.9em; flex: 1; } /* Route chiếm phần dư */
         
-        .time-box { display: flex; gap: 15px; font-size: 0.9em; background: #0a192f; padding: 5px 8px; border-radius: 4px; width: 100%; justify-content: space-around; }
+        /* Chỉnh sửa phần hiển thị Số đăng bạ */
+        .f-reg-box { text-align: right; font-size: 0.9em; }
+        .reg-label { color: #8892b0; font-weight: normal; font-size: 0.9em; margin-right: 4px; }
+        .f-reg { color: #64ffda; font-weight: bold; }
+        
+        .time-box { display: flex; gap: 15px; font-size: 0.9em; background: #0a192f; padding: 5px 8px; border-radius: 4px; width: 100%; justify-content: space-around; box-sizing: border-box; }
         .t-label { color: #8892b0; font-size: 0.8em; margin-right: 3px; }
         .t-val { font-weight: bold; color: #fff; }
         .t-val.actual { color: #f7d794; }
@@ -52,7 +56,7 @@
 <body>
 
     <div class="container">
-        <h2>✈️ PLEIKU FLIGHT BOARD</h2>
+        <h2>✈️ PLEIKU FLIGHT BOARD <span style="font-size:0.6em; opacity:0.6; display:block; font-weight:normal">Version B.25</span></h2>
         <div class="sub-title" id="lastUpdate">Chờ cập nhật...</div>
 
         <div class="tabs">
@@ -97,7 +101,7 @@
             let finalReg = "N/A";
             let isRecovered = false;
 
-            // 1. LOGIC B.21: BẢO VỆ SỐ ĐĂNG KÝ
+            // CHECK FIREBASE
             try {
                 const snapshot = await get(child(ref(db), `flight_logs/${customID}`));
                 if (snapshot.exists()) {
@@ -113,16 +117,13 @@
                 }
             } catch (e) { finalReg = apiReg || "N/A"; }
 
-            // 2. CHUẨN BỊ DỮ LIỆU HIỂN THỊ CHI TIẾT
-            // Giờ cất cánh (Dep)
+            // PREPARE DATA
             const depTime = f.dep_actual ? f.dep_actual.substring(11, 16) : f.dep_time.substring(11, 16);
-            const isDepReal = !!f.dep_actual; // Có phải giờ thực tế không?
+            const isDepReal = !!f.dep_actual;
 
-            // Giờ hạ cánh (Arr)
             const arrTime = f.arr_actual ? f.arr_actual.substring(11, 16) : f.arr_time.substring(11, 16);
             const isArrReal = !!f.arr_actual;
 
-            // Terminal & Gate
             const term = (type === 'dep' ? f.dep_terminal : f.arr_terminal) || null;
             const gate = (type === 'dep' ? f.dep_gate : f.arr_gate) || null;
 
@@ -144,7 +145,6 @@
                 logged_at: new Date().toLocaleString("vi-VN")
             };
 
-            // Lưu Firebase (Không await để nhanh)
             set(ref(db, `flight_logs/${customID}`), flightData);
 
             return flightData;
@@ -167,7 +167,6 @@
                 const processedPromises = rawFlights.map(item => processSingleFlight(item.f, item.type));
                 allFlights = await Promise.all(processedPromises);
 
-                // Sắp xếp
                 allFlights.sort((a, b) => new Date(a.raw_sort_time) - new Date(b.raw_sort_time));
 
                 renderFlights('all');
@@ -207,7 +206,6 @@
                 const cardClass = f.type === 'dep' ? 'card-dep' : 'card-arr';
                 const recoveredBadge = f.is_recovered ? '<span class="saved-badge">DB</span>' : '';
 
-                // HTML cho Terminal/Gate
                 let gateHtml = '';
                 if (f.term || f.gate) {
                     gateHtml = `
@@ -226,7 +224,10 @@
                         </div>
                         <div class="row">
                             <div class="f-route">${f.route}</div>
-                            <div class="f-reg">${f.reg}</div>
+                            <div class="f-reg-box">
+                                <span class="reg-label">Số đăng bạ:</span>
+                                <span class="f-reg">${f.reg}</span>
+                            </div>
                         </div>
                         <div class="time-box">
                             <div><span class="t-label">Cất cánh:</span><span class="t-val ${f.is_dep_real ? 'actual' : ''}">${f.dep_display}</span></div>

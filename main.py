@@ -1,59 +1,82 @@
 import requests
-from datetime import datetime, timedelta
+import time
+import datetime
+import firebase_admin
+from firebase_admin import credentials, db
 
-# ==========================================
-# VERSION: A.20
-# DESCRIPTION: Bản cưỡng bức đồng bộ Terminal & Sửa lỗi lệch -7h
-# ==========================================
+# --- ID CỐ ĐỊNH: KẾT NỐI FIREBASE ---
+# Lưu ý: File serviceAccountKey.json phải nằm cùng thư mục với file này trên PythonAnywhere
+if not firebase_admin._apps:
+    try:
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': 'https://pleiku-flight-radar-default-rtdb.asia-southeast1.firebasedatabase.app'
+        })
+        print("✅ Kết nối Firebase thành công.")
+    except Exception as e:
+        print(f"❌ Lỗi kết nối Firebase: {e}")
 
-# Dòng này để anh kiểm tra ngay lập tức xem đã nhận bản mới chưa
-print("\n" + "📡 " + "═"*45)
-print("   HỆ THỐNG TRA CỨU HÀNG KHÔNG - PHIÊN BẢN A.20")
-print("   TRẠNG THÁI: ĐÃ ĐỒNG BỘ TRỰC TIẾP")
-print("📡 " + "═"*45 + "\n")
+def fetch_flight_data():
+    now = datetime.datetime.now()
+    # URL lấy dữ liệu sân bay Pleiku (PXU)
+    url = f"https://api.flightradar24.com/common/v1/airport.json?code=pxu&plugin[]=&plugin-setting[schedule][mode]=&plugin-setting[schedule][timestamp]={int(time.time())}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        data = response.json()
+        schedule = data['result']['response']['airport']['pluginData']['schedule']
+        
+        flights_to_process = []
+        if 'arrivals' in schedule:
+            for f in schedule['arrivals']['data']: flights_to_process.append({'f': f, 'type': 'arr'})
+        if 'departures' in schedule:
+            for f in schedule['departures']['data']: flights_to_process.append({'f': f, 'type': 'dep'})
 
-class PleikuFlightRadar:
-    def __init__(self):
-        # API Key của anh Hưng
-        self.api_key = "cba47be516a88ec3301d9f54f28b5d7e"
-        self.url = "http://api.aviationstack.com/v1/flights"
-
-    def fetch_flight(self, iata_code):
-        params = {'access_key': self.api_key, 'flight_iata': iata_code}
-        try:
-            r = requests.get(self.url, params=params)
-            data = r.json()
+        for item in flights_to_process:
+            f = item['f']['flight']
+            t = f['time']
             
-            if not data or 'data' not in data or len(data['data']) == 0:
-                return f"⚠️ Không tìm thấy dữ liệu cho chuyến {iata_code}."
-            
-            f = data['data'][0]
-            
-            def fix_vietnam_time(time_str):
-                if not time_str: return "N/A"
-                try:
-                    # Dữ liệu từ API đang bị cộng dư 7 tiếng, chúng ta trừ lại
-                    dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-                    dt_fixed = dt - timedelta(hours=7)
-                    return dt_fixed.strftime("%H:%M ngày %d/%m/%Y")
-                except:
-                    return time_str
+            # Hàm phụ chuyển đổi Timestamp thành HH:mm
+            def fmt_time(ts):
+                return datetime.datetime.fromtimestamp(ts).strftime("%H:%M") if ts else "--:--"
 
-            return (f"✅ THÔNG TIN CHUYẾN BAY: {f['flight']['iata']}\n"
-                    f"──────────────────────────────────────────\n"
-                    f"✈ Số đăng ký (Reg): {f['aircraft'].get('registration') if f.get('aircraft') else 'N/A'}\n"
-                    f"✈ Trạng thái: {f['flight_status'].upper()}\n"
-                    f"✈ Lộ trình: {f['departure']['iata']} ✈ {f['arrival']['iata']}\n"
-                    f"✈ Giờ cất cánh (Đã fix): {fix_vietnam_time(f['departure'].get('scheduled'))}\n"
-                    f"✈ Giờ hạ cánh (Đã fix): {fix_vietnam_time(f['arrival'].get('scheduled'))}\n"
-                    f"✈ Nhà ga (Đi/Đến): T{f['departure'].get('terminal') or '-'} / T{f['arrival'].get('terminal') or '-'}\n"
-                    f"✈ Cổng (Đi/Đến): {f['departure'].get('gate') or '-'} / {f['arrival'].get('gate') or '-'}\n"
-                    f"──────────────────────────────────────────")
-        except Exception as e:
-            return f"❌ Lỗi: {e}"
+            # Trích xuất 7 thông tin cốt lõi theo yêu cầu của anh Hưng
+            payload = {
+                "flight": f['identification']['number']['default'] or "N/A", # 1. Số hiệu chuyến bay
+                "reg": f['aircraft'].get('registration') or "N/A",           # 2. Số Aircraft Reg
+                "origin_icao": f['airport']['origin']['code']['icao'] or "----", # 3a. Sân bay đi (ICAO)
+                "dest_icao": f['airport']['destination']['code']['icao'] or "----", # 3b. Sân bay đến (ICAO)
+                
+                # 4 & 5. Giờ cất cánh (Kế hoạch & Thực tế)
+                "dep_sched": fmt_time(t['scheduled']['departure']),
+                "dep_real": fmt_time(t['real']['departure'] or t['estimated']['departure']),
+                
+                # 6 & 7. Giờ hạ cánh (Kế hoạch & Thực tế)
+                "arr_sched": fmt_time(t['scheduled']['arrival']),
+                "arr_real": fmt_time(t['real']['arrival'] or t['estimated']['arrival']),
+                
+                "status": f['status']['text'],
+                "raw_sort_time": t['scheduled']['departure'] if item['type'] == 'dep' else t['scheduled']['arrival']
+            }
+
+            # Lưu vào Firebase: Tên node kết hợp Số hiệu và Ngày để không bị ghi đè dữ liệu cũ
+            node_name = f"{payload['flight']}_{now.strftime('%Y%m%d')}"
+            db.reference(f"flight_logs/{node_name}").update(payload)
+            
+        print(f"🚀 Cập nhật thành công {len(flights_to_process)} chuyến bay vào lúc {now.strftime('%H:%M:%S')}")
+
+    except Exception as e:
+        print(f"❌ Lỗi khi lấy dữ liệu: {e}")
 
 if __name__ == "__main__":
-    radar = PleikuFlightRadar()
-    code = input("✈ Nhập số hiệu chuyến bay (VD: VN1422): ").strip().upper()
-    if code:
-        print(radar.fetch_flight(code))
+    while True:
+        fetch_flight_data()
+        # Nghỉ theo tần suất (mặc định 2 phút)
+        try:
+            tan_suat = db.reference('CAI_DAT/tan_suat').get()
+            time.sleep(int(tan_suat or 2) * 60)
+        except:
+            time.sleep(120)

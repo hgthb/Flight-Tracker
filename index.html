@@ -2,269 +2,151 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pleiku Flight Board - B.27</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PXU FLIGHT RADAR - A.2</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a192f; color: #fff; padding: 10px; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 500px; padding-bottom: 80px; }
-        h2 { color: #64ffda; text-align: center; font-size: 1.2em; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
-        .sub-title { text-align: center; color: #8892b0; font-size: 0.8em; margin-bottom: 15px; }
+        /* Giao diện tối chuyên nghiệp cho FIDS */
+        body { 
+            background: #0b0e14; 
+            color: #e0e0e0; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            padding: 15px; 
+        }
+
+        h2 { 
+            color: #64ffda; 
+            text-align: center; 
+            font-size: 1.2em; 
+            text-transform: uppercase; 
+            margin-bottom: 20px;
+        }
+
+        /* Container hỗ trợ trượt ngang trên điện thoại */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #242933;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px; /* Đảm bảo chiều ngang để hiển thị các cột */
+        }
+
+        th {
+            background: #1c212c;
+            color: #8892b0;
+            text-align: left;
+            padding: 12px;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #64ffda;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #242933;
+            vertical-align: middle;
+        }
+
+        /* Định dạng các ô dữ liệu */
+        .flight-no { font-weight: bold; color: #ffffff; font-size: 1em; }
+        .reg-no { color: #ffa502; font-family: monospace; font-size: 0.9em; }
+        .icao-code { color: #64ffda; font-weight: 500; }
         
-        /* DATE PICKER BOX */
-        .date-box { background: #112240; padding: 10px; border-radius: 8px; border: 1px solid #233554; display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
-        .date-input { flex: 1; background: #0a192f; border: 1px solid #233554; color: #64ffda; padding: 8px; border-radius: 4px; font-family: inherit; font-size: 0.95em; outline: none; }
-        .view-btn { background: #64ffda; color: #0a192f; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap; }
-        .view-btn:active { transform: scale(0.95); }
+        /* Cấu trúc giờ 2 hàng trong 1 ô */
+        .time-group {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.3;
+        }
+        .sched {
+            color: #8892b0;
+            font-size: 0.8em;
+            font-weight: normal;
+        }
+        .real {
+            color: #f7d794;
+            font-size: 1em;
+            font-weight: bold;
+        }
 
-        /* TABS */
-        .tabs { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
-        .tab-btn { flex: 1; padding: 10px; background: #112240; border: 1px solid #233554; color: #8892b0; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.9em; }
-        .tab-btn.active { background: #64ffda; color: #0a192f; border-color: #64ffda; }
-
-        /* DANH SÁCH CHI TIẾT */
-        .flight-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
-        .flight-card { background: #112240; padding: 12px; border-radius: 8px; border-left: 4px solid #8892b0; font-size: 0.9em; position: relative; display: flex; flex-direction: column; gap: 8px; }
-        
-        .card-dep { border-left-color: #f7d794; } 
-        .card-arr { border-left-color: #64ffda; } 
-
-        .row { display: flex; justify-content: space-between; align-items: center; }
-        .f-code { font-weight: bold; font-size: 1.2em; color: #fff; }
-        .f-status { font-size: 0.8em; text-transform: uppercase; font-weight: bold; }
-        .f-route { color: #8892b0; font-size: 0.9em; flex: 1; } 
-        
-        .f-reg-box { text-align: right; font-size: 0.9em; }
-        .reg-label { color: #8892b0; font-weight: normal; font-size: 0.9em; margin-right: 4px; }
-        .f-reg { color: #64ffda; font-weight: bold; }
-        
-        .time-box { display: flex; gap: 15px; font-size: 0.9em; background: #0a192f; padding: 5px 8px; border-radius: 4px; width: 100%; justify-content: space-around; box-sizing: border-box; }
-        .t-label { color: #8892b0; font-size: 0.8em; margin-right: 3px; }
-        .t-val { font-weight: bold; color: #fff; }
-        .t-val.actual { color: #f7d794; }
-
-        .gate-info { font-size: 0.8em; color: #8892b0; display: flex; gap: 10px; justify-content: flex-end; }
-        .gate-val { color: #fff; font-weight: bold; }
-
-        .status-landed { color: #64ffda; }
-        .status-active { color: #f7d794; }
-        .status-scheduled { color: #8892b0; }
-
-        .saved-badge { position: absolute; top: 5px; right: 5px; font-size: 0.6em; color: #8892b0; opacity: 0.5; }
-
-        .loading { text-align: center; color: #8892b0; margin-top: 20px; font-style: italic; font-size: 0.9em; }
-        .refresh-btn { position: fixed; bottom: 20px; right: 20px; background: #64ffda; color: #0a192f; border: none; width: 50px; height: 50px; border-radius: 50%; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center; z-index: 100; }
+        /* Hiệu ứng dòng khi di chuyển chuột */
+        tr:hover { background: #161b22; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2>✈️ PLEIKU FLIGHT BOARD <span style="font-size:0.6em; opacity:0.6; display:block; font-weight:normal">Version B.27</span></h2>
-        <div class="sub-title" id="lastUpdate">Vui lòng chọn ngày</div>
+    <h2>✈️ PLEIKU AIRPORT REALTIME (A.2)</h2>
 
-        <div class="date-box">
-            <input type="date" id="selectedDate" class="date-input">
-            <button class="view-btn" onclick="loadAirportData()">XEM LỊCH BAY</button>
-        </div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('all')">TẤT CẢ</button>
-            <button class="tab-btn" onclick="switchTab('dep')">ĐI (DEP)</button>
-            <button class="tab-btn" onclick="switchTab('arr')">ĐẾN (ARR)</button>
-        </div>
-
-        <div id="flightList" class="flight-list">
-            <div class="loading" style="margin-top:5px">👇 Chọn ngày và nhấn nút Xem</div>
-        </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Chuyến bay</th>
+                    <th>Đăng bạ (Reg)</th>
+                    <th>Lộ trình (ICAO)</th>
+                    <th>Cất cánh (S/A)</th>
+                    <th>Hạ cánh (S/A)</th>
+                </tr>
+            </thead>
+            <tbody id="flight-data">
+                </tbody>
+        </table>
     </div>
-
-    <button class="refresh-btn" onclick="loadAirportData()">↻</button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // --- ID CỐ ĐỊNH: Anh dán cấu hình Firebase của anh vào đây ---
         const firebaseConfig = {
-            apiKey: "AIzaSyAvQGy3_PTvNpFFrjpG99EDxv8MMnebJnc",
+            apiKey: "AIzaSy...",
             authDomain: "pleiku-flight-radar.firebaseapp.com",
             databaseURL: "https://pleiku-flight-radar-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "pleiku-flight-radar",
-            storageBucket: "pleiku-flight-radar.firebasestorage.app",
-            messagingSenderId: "539016276389",
-            appId: "1:539016276389:web:cf6f4602237f6f91b0e04c"
+            storageBucket: "pleiku-flight-radar.appspot.com",
+            messagingSenderId: "...",
+            appId: "..."
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const airKey = "0bafa65a-71fb-4cd7-ada8-e8485b1b967f"; 
-        const AIRPORT_CODE = "PXU"; 
+        const flightTable = document.getElementById('flight-data');
 
-        let allFlights = [];
+        // Lắng nghe dữ liệu realtime
+        onValue(ref(db, 'flight_logs'), (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
 
-        // ĐẶT MẶC ĐỊNH NGÀY HÔM NAY
-        document.getElementById('selectedDate').valueAsDate = new Date();
+            // Chuyển object thành array và sắp xếp theo thời gian
+            const flights = Object.values(data).sort((a, b) => a.raw_sort_time - b.raw_sort_time);
 
-        async function processSingleFlight(f, type, selectedDateStr) {
-            // Lấy ngày của chuyến bay
-            const flightDate = (type === 'dep' ? f.dep_time : f.arr_time).substring(0, 10);
-            
-            // CHỈ XỬ LÝ NẾU TRÙNG KHỚP NGÀY ĐANG CHỌN
-            if (flightDate !== selectedDateStr) return null;
-
-            const customID = `${f.flight_iata}_${flightDate}`;
-            
-            let apiReg = f.reg_number || f.hex || (f.aircraft ? f.aircraft.reg_number : null);
-            let finalReg = "N/A";
-            let isRecovered = false;
-
-            try {
-                const snapshot = await get(child(ref(db), `flight_logs/${customID}`));
-                if (snapshot.exists()) {
-                    const savedData = snapshot.val();
-                    if ((!apiReg || apiReg === "N/A") && savedData.reg && savedData.reg !== "N/A") {
-                        finalReg = savedData.reg;
-                        isRecovered = true;
-                    } else {
-                        finalReg = apiReg || "N/A";
-                    }
-                } else {
-                    finalReg = apiReg || "N/A";
-                }
-            } catch (e) { finalReg = apiReg || "N/A"; }
-
-            // Đổi ACTIVE thành EN-ROUTE
-            let status = (f.status || "SCHEDULED").toUpperCase();
-            if (status === 'ACTIVE') status = 'EN-ROUTE';
-
-            const depTime = f.dep_actual ? f.dep_actual.substring(11, 16) : f.dep_time.substring(11, 16);
-            const isDepReal = !!f.dep_actual;
-            const arrTime = f.arr_actual ? f.arr_actual.substring(11, 16) : f.arr_time.substring(11, 16);
-            const isArrReal = !!f.arr_actual;
-
-            const term = (type === 'dep' ? f.dep_terminal : f.arr_terminal) || null;
-            const gate = (type === 'dep' ? f.dep_gate : f.arr_gate) || null;
-
-            const flightData = {
-                flight: f.flight_iata,
-                reg: finalReg,
-                route: type === 'dep' ? `PXU ➔ ${f.arr_iata}` : `${f.dep_iata} ➔ PXU`,
-                dep_display: depTime,
-                arr_display: arrTime,
-                is_dep_real: isDepReal,
-                is_arr_real: isArrReal,
-                term: term,
-                gate: gate,
-                status: status,
-                type: type,
-                is_recovered: isRecovered,
-                search_date: flightDate,
-                raw_sort_time: type === 'dep' ? f.dep_time : f.arr_time,
-                logged_at: new Date().toLocaleString("vi-VN")
-            };
-
-            set(ref(db, `flight_logs/${customID}`), flightData);
-            return flightData;
-        }
-
-        window.loadAirportData = async function() {
-            const listDiv = document.getElementById('flightList');
-            const pickedDate = document.getElementById('selectedDate').value; // YYYY-MM-DD
-            
-            if (!pickedDate) return alert("Vui lòng chọn ngày!");
-
-            listDiv.innerHTML = `<div class="loading">📡 Đang tải lịch bay ngày ${pickedDate}...</div>`;
-            
-            try {
-                // Gọi API Schedules
-                const depPromise = fetch(`https://airlabs.co/api/v9/schedules?dep_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
-                const arrPromise = fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT_CODE}&api_key=${airKey}`).then(r => r.json());
-
-                const [depData, arrData] = await Promise.all([depPromise, arrPromise]);
-
-                let rawFlights = [];
-                if (depData.response) depData.response.forEach(f => rawFlights.push({f, type: 'dep'}));
-                if (arrData.response) arrData.response.forEach(f => rawFlights.push({f, type: 'arr'}));
-
-                // XỬ LÝ VÀ LỌC THEO NGÀY
-                const processedPromises = rawFlights.map(item => processSingleFlight(item.f, item.type, pickedDate));
-                // Lọc bỏ các kết quả null (khác ngày)
-                const results = await Promise.all(processedPromises);
-                allFlights = results.filter(item => item !== null);
-
-                // SẮP XẾP
-                allFlights.sort((a, b) => new Date(a.raw_sort_time) - new Date(b.raw_sort_time));
-
-                renderFlights('all');
-                document.getElementById('lastUpdate').innerText = `Dữ liệu ngày: ${pickedDate} | Cập nhật lúc: ${new Date().toLocaleTimeString('vi-VN')}`;
-
-            } catch (e) {
-                console.error(e);
-                listDiv.innerHTML = '<div class="loading">❌ Lỗi kết nối hoặc không có dữ liệu ngày này.</div>';
-            }
-        }
-
-        window.switchTab = function(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            renderFlights(tab);
-        }
-
-        function renderFlights(filter) {
-            const listDiv = document.getElementById('flightList');
-            listDiv.innerHTML = "";
-
-            const filtered = allFlights.filter(f => filter === 'all' || f.type === filter);
-
-            if (filtered.length === 0) {
-                listDiv.innerHTML = '<div class="loading">Không tìm thấy chuyến bay nào trong ngày này.</div>';
-                return;
-            }
-
-            filtered.forEach(f => {
-                const isLanded = f.status === 'LANDED';
-                const isEnRoute = f.status === 'EN-ROUTE';
-                
-                let statusColor = 'status-scheduled';
-                if (isLanded) statusColor = 'status-landed';
-                if (isEnRoute) statusColor = 'status-active';
-
-                const cardClass = f.type === 'dep' ? 'card-dep' : 'card-arr';
-                const recoveredBadge = f.is_recovered ? '<span class="saved-badge">DB</span>' : '';
-
-                let gateHtml = '';
-                if (f.term || f.gate) {
-                    gateHtml = `
-                        <div class="gate-info">
-                            ${f.term ? `<span>Term: <span class="gate-val">${f.term}</span></span>` : ''}
-                            ${f.gate ? `<span>Gate: <span class="gate-val">${f.gate}</span></span>` : ''}
-                        </div>`;
-                }
-
-                listDiv.innerHTML += `
-                    <div class="flight-card ${cardClass}">
-                        ${recoveredBadge}
-                        <div class="row">
-                            <div class="f-code">${f.flight || 'N/A'}</div>
-                            <div class="f-status ${statusColor}">${f.status}</div>
+            flightTable.innerHTML = flights.map(f => `
+                <tr>
+                    <td class="flight-no">${f.flight}</td>
+                    <td class="reg-no">${f.reg}</td>
+                    <td class="icao-code">${f.origin_icao} ➔ ${f.dest_icao}</td>
+                    <td>
+                        <div class="time-group">
+                            <span class="sched">${f.dep_sched}</span>
+                            <span class="real">${f.dep_real}</span>
                         </div>
-                        <div class="row">
-                            <div class="f-route">${f.route}</div>
-                            <div class="f-reg-box">
-                                <span class="reg-label">Số đăng bạ:</span>
-                                <span class="f-reg">${f.reg}</span>
-                            </div>
+                    </td>
+                    <td>
+                        <div class="time-group">
+                            <span class="sched">${f.arr_sched}</span>
+                            <span class="real">${f.arr_real}</span>
                         </div>
-                        <div class="time-box">
-                            <div><span class="t-label">Cất cánh:</span><span class="t-val ${f.is_dep_real ? 'actual' : ''}">${f.dep_display}</span></div>
-                            <div><span class="t-label">Hạ cánh:</span><span class="t-val ${f.is_arr_real ? 'actual' : ''}">${f.arr_display}</span></div>
-                        </div>
-                        ${gateHtml}
-                    </div>
-                `;
-            });
-        }
-        
-        // Tự động tải dữ liệu hôm nay khi mở web
-        loadAirportData();
+                    </td>
+                </tr>
+            `).join('');
+        });
     </script>
 </body>
 </html>

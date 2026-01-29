@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PXU FLIGHT RADAR - A.2</title>
     <style>
-        /* Giao diện tối chuyên nghiệp cho FIDS */
+        /* Giao diện tối chuyên nghiệp cho hệ thống FIDS */
         body { 
             background: #0b0e14; 
             color: #e0e0e0; 
@@ -34,7 +34,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 700px; /* Đảm bảo chiều ngang để hiển thị các cột */
+            min-width: 750px; /* Chiều ngang tối thiểu để hiển thị 1 hàng */
         }
 
         th {
@@ -54,29 +54,29 @@
             vertical-align: middle;
         }
 
-        /* Định dạng các ô dữ liệu */
-        .flight-no { font-weight: bold; color: #ffffff; font-size: 1em; }
-        .reg-no { color: #ffa502; font-family: monospace; font-size: 0.9em; }
-        .icao-code { color: #64ffda; font-weight: 500; }
+        /* Định dạng dữ liệu */
+        .flight-no { font-weight: bold; color: #ffffff; font-size: 1.05em; }
+        .reg-no { color: #ffa502; font-family: 'Courier New', monospace; font-size: 0.95em; }
+        .icao-code { color: #64ffda; font-weight: 500; font-family: monospace; }
         
-        /* Cấu trúc giờ 2 hàng trong 1 ô */
+        /* Cấu trúc giờ 2 hàng trong 1 ô (Giờ kế hoạch trên, Giờ thực tế dưới) */
         .time-group {
             display: flex;
             flex-direction: column;
-            line-height: 1.3;
+            line-height: 1.4;
         }
         .sched {
             color: #8892b0;
-            font-size: 0.8em;
+            font-size: 0.85em;
             font-weight: normal;
         }
         .real {
             color: #f7d794;
-            font-size: 1em;
+            font-size: 1.1em;
             font-weight: bold;
         }
 
-        /* Hiệu ứng dòng khi di chuyển chuột */
+        /* Hiệu ứng khi lướt qua các dòng */
         tr:hover { background: #161b22; }
     </style>
 </head>
@@ -104,27 +104,30 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // --- ID CỐ ĐỊNH: Anh dán cấu hình Firebase của anh vào đây ---
+        // ID CỐ ĐỊNH: Thông tin cấu hình chính chủ của anh Hưng
         const firebaseConfig = {
-            apiKey: "AIzaSy...",
+            apiKey: "AIzaSyAvQGy3_PTvNpFFrjpG99EDxv8MMnebJnc",
             authDomain: "pleiku-flight-radar.firebaseapp.com",
             databaseURL: "https://pleiku-flight-radar-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "pleiku-flight-radar",
-            storageBucket: "pleiku-flight-radar.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
+            storageBucket: "pleiku-flight-radar.firebasestorage.app",
+            messagingSenderId: "539016276389",
+            appId: "1:539016276389:web:cf6f4602237f6f91b0e04c"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const flightTable = document.getElementById('flight-data');
 
-        // Lắng nghe dữ liệu realtime
+        // Lắng nghe dữ liệu Realtime từ đường dẫn 'flight_logs'
         onValue(ref(db, 'flight_logs'), (snapshot) => {
             const data = snapshot.val();
-            if (!data) return;
+            if (!data) {
+                flightTable.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Đang cập nhật dữ liệu...</td></tr>";
+                return;
+            }
 
-            // Chuyển object thành array và sắp xếp theo thời gian
+            // Chuyển dữ liệu thành danh sách và sắp xếp theo mốc thời gian lấy được
             const flights = Object.values(data).sort((a, b) => a.raw_sort_time - b.raw_sort_time);
 
             flightTable.innerHTML = flights.map(f => `
@@ -134,14 +137,14 @@
                     <td class="icao-code">${f.origin_icao} ➔ ${f.dest_icao}</td>
                     <td>
                         <div class="time-group">
-                            <span class="sched">${f.dep_sched}</span>
-                            <span class="real">${f.dep_real}</span>
+                            <span class="sched">S: ${f.dep_sched}</span>
+                            <span class="real">A: ${f.dep_real}</span>
                         </div>
                     </td>
                     <td>
                         <div class="time-group">
-                            <span class="sched">${f.arr_sched}</span>
-                            <span class="real">${f.arr_real}</span>
+                            <span class="sched">S: ${f.arr_sched}</span>
+                            <span class="real">A: ${f.arr_real}</span>
                         </div>
                     </td>
                 </tr>

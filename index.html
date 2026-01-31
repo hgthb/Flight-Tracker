@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.35 - Sniper Scan</title>
+    <title>Radar A.36 - Anti-Spam</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
@@ -32,7 +32,7 @@
             cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        /* NÚT QUÉT NGAY - PHIÊN BẢN NEON SIÊU SÁNG (A.35) */
+        /* NÚT QUÉT NGAY - PHIÊN BẢN NEON SIÊU SÁNG */
         #btn-flash-scan {
             height: 48px; padding: 0 20px; border-radius: 6px; border: 2px solid #ff99bb;
             background: #ff0055; /* Đỏ hồng Neon */
@@ -40,7 +40,18 @@
             box-shadow: 0 0 15px rgba(255, 0, 85, 0.6); /* Phát sáng */
             text-transform: uppercase;
             animation: pulse-neon 2s infinite;
+            transition: all 0.3s ease;
         }
+        /* Style cho lúc bị khóa (Disabled) [cite: 2026-01-21] */
+        #btn-flash-scan:disabled {
+            background: #475569; /* Màu xám */
+            border-color: #64748b;
+            cursor: not-allowed; /* Biểu tượng cấm */
+            box-shadow: none;
+            animation: none; /* Tắt nhấp nháy */
+            opacity: 0.7;
+        }
+
         @keyframes pulse-neon { 
             0% { transform: scale(1); box-shadow: 0 0 15px rgba(255, 0, 85, 0.6); } 
             50% { transform: scale(1.02); box-shadow: 0 0 25px rgba(255, 0, 85, 0.9); } 
@@ -72,7 +83,7 @@
 </head>
 <body>
 
-    <h2>✈️ RADAR CONTROL A.35</h2>
+    <h2>✈️ RADAR CONTROL A.36</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
@@ -210,22 +221,22 @@
             alert(`Đã lưu!`);
         };
 
-        // Logic Nút Bấm 1 Lần [cite: 2026-01-21]
+        // Logic Nút Bấm Anti-Spam (A.36) [cite: 2026-01-21]
         btnFlashScan.onclick = () => {
-            // Gửi lệnh lên Firebase
+            // 1. Gửi lệnh
             update(ref(db, 'settings'), { force_scan: true });
             
-            // Hiệu ứng phản hồi
-            btnFlashScan.innerText = "⏳ ĐANG CHỜ 15S...";
-            btnFlashScan.style.background = "#555"; 
+            // 2. KHÓA NÚT NGAY LẬP TỨC
+            btnFlashScan.disabled = true; // Thuộc tính disable thật
+            btnFlashScan.innerText = "⏳ CHỜ 20s...";
             
-            // Sau 20s (15s chờ + 5s xử lý) tự trả về trạng thái cũ
+            // 3. Mở khóa sau 20 giây (15s chờ + 5s an toàn)
             setTimeout(() => {
+                btnFlashScan.disabled = false; // Mở lại
                 btnFlashScan.innerText = "🚀 QUÉT NGAY (+15s)";
-                btnFlashScan.style.background = "#ff0055"; 
-            }, 20000);
+            }, 20000); 
             
-            alert("Đã gửi lệnh! Robot sẽ chờ 15 giây rồi quét dữ liệu mới nhất.");
+            alert("Đã gửi lệnh! Nút quét sẽ tạm khóa trong 20 giây để chờ robot xử lý.");
         };
     </script>
 </body>

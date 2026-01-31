@@ -3,33 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.32 - Symbol Update</title>
+    <title>Radar A.35 - Sniper Scan</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
         
         .settings-panel {
             background: #ffffff; padding: 15px; margin-bottom: 12px; border-radius: 12px; 
-            display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 10px;
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 8px;
             box-shadow: 0 4px 15px rgba(255,255,255,0.1);
         }
         .settings-group { display: flex; flex-direction: column; gap: 4px; }
         .settings-panel label { font-size: 11px; color: #334155; font-weight: 800; text-align: center; text-transform: uppercase; }
         
         .settings-panel input { 
-            height: 48px; padding: 0 10px; border-radius: 6px; border: 2px solid #cbd5e1; 
+            height: 48px; padding: 0 5px; border-radius: 6px; border: 2px solid #cbd5e1; 
             background: #ffffff !important; color: #0f172a !important;
             font-weight: 800; font-size: 16px; text-align: center; box-sizing: border-box;
         }
-        #airport-code { width: 70px; text-transform: uppercase; border-color: #3b82f6; }
-        #scan-date { width: 145px; }
-        #scan-interval { width: 60px; }
+        #airport-code { width: 60px; text-transform: uppercase; border-color: #3b82f6; }
+        #scan-date { width: 135px; }
+        #scan-interval { width: 50px; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
         #btn-save { 
-            height: 48px; padding: 0 25px; border-radius: 6px; border: none;
-            background: #10b981; color: white; font-weight: 900; font-size: 15px;
+            height: 48px; padding: 0 15px; border-radius: 6px; border: none;
+            background: #10b981; color: white; font-weight: 900; font-size: 14px;
             cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* NÚT QUÉT NGAY - PHIÊN BẢN NEON SIÊU SÁNG (A.35) */
+        #btn-flash-scan {
+            height: 48px; padding: 0 20px; border-radius: 6px; border: 2px solid #ff99bb;
+            background: #ff0055; /* Đỏ hồng Neon */
+            color: white; font-weight: 900; font-size: 14px; cursor: pointer; 
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.6); /* Phát sáng */
+            text-transform: uppercase;
+            animation: pulse-neon 2s infinite;
+        }
+        @keyframes pulse-neon { 
+            0% { transform: scale(1); box-shadow: 0 0 15px rgba(255, 0, 85, 0.6); } 
+            50% { transform: scale(1.02); box-shadow: 0 0 25px rgba(255, 0, 85, 0.9); } 
+            100% { transform: scale(1); box-shadow: 0 0 15px rgba(255, 0, 85, 0.6); } 
         }
 
         .summary-bar { text-align: right; font-size: 14px; color: #facc15; margin-bottom: 5px; font-weight: bold; padding-right: 5px; }
@@ -42,26 +57,13 @@
         .route-text { font-weight: 800; color: #fbbf24; font-size: 14px; }
         .time-group { display: flex; flex-direction: column; line-height: 1.4; }
         .real-time { margin-top: 6px; font-weight: bold; color: #4ade80; font-size: 14px; display: block; }
-
         .status-pill { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 900; text-align: center; margin-top: 5px; }
         
         .st-completed { background-color: #AEE2FF; color: #7a5c3e; } 
         .st-plan { background-color: #EADDCA; color: #0096FF; }      
         
-        /* Animation nhấp nháy cho ĐANG BAY */
-        @keyframes blinker {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(0.98); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-
-        .st-live { 
-            background-color: #00FFFF;
-            color: #8B4513;            
-            border: 1px solid #00D4FF; 
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
-            animation: blinker 2s ease-in-out infinite; 
-        }
+        @keyframes blinker { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+        .st-live { background-color: #00FFFF; color: #8B4513; border: 1px solid #00D4FF; box-shadow: 0 0 10px rgba(0, 255, 255, 0.6); animation: blinker 2s ease-in-out infinite; }
 
         .pair-blue { background: rgba(56, 189, 248, 0.2); border-left: 5px solid #38bdf8; }
         .pair-brown { background: rgba(217, 119, 6, 0.2); border-left: 5px solid #d97706; }
@@ -70,13 +72,14 @@
 </head>
 <body>
 
-    <h2>✈️ DIRECT DATABASE RADAR (A.32)</h2>
+    <h2>✈️ RADAR CONTROL A.35</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
         <div class="settings-group"><label>Ngày</label><input type="date" id="scan-date"></div>
         <div class="settings-group"><label>Phút</label><input type="number" id="scan-interval"></div>
-        <button id="btn-save">TẢI DỮ LIỆU</button>
+        <button id="btn-save">LƯU</button>
+        <button id="btn-flash-scan">🚀 QUÉT NGAY (+15s)</button>
     </div>
 
     <div class="summary-bar" id="total-flights">Tổng: 0 chuyến</div>
@@ -98,7 +101,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, get, off } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, get, off, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = { databaseURL: "https://pleiku-flight-radar-default-rtdb.asia-southeast1.firebasedatabase.app", projectId: "pleiku-flight-radar" };
         const app = initializeApp(firebaseConfig);
@@ -108,6 +111,7 @@
         const dateInput = document.getElementById('scan-date');
         const intervalInput = document.getElementById('scan-interval');
         const btnSave = document.getElementById('btn-save');
+        const btnFlashScan = document.getElementById('btn-flash-scan');
 
         const today = new Date(new Date().getTime() + 7*60*60*1000).toISOString().split('T')[0];
         let currentRef = null;
@@ -120,7 +124,7 @@
             onValue(currentRef, (snapshot) => {
                 const data = snapshot.val();
                 if (!data) {
-                    document.getElementById('flight-data').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa">Chưa có dữ liệu...</td></tr>';
+                    document.getElementById('flight-data').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa">Đang tải...</td></tr>';
                     document.getElementById('total-flights').innerText = "Tổng: 0 chuyến";
                     return;
                 }
@@ -160,10 +164,9 @@
                         let stClass = "st-plan";
                         let statusText = f.status;
 
-                        // LOGIC CẬP NHẬT TEXT VÀ ICON (A.32)
                         if (f.status === "ĐÃ HOÀN THÀNH") {
                             stClass = "st-completed";
-                            statusText = "🛬 HOÀN THÀNH"; // Cắt ngắn và thêm icon hạ cánh
+                            statusText = "🛬 HOÀN THÀNH"; 
                         } else if (f.status === "ĐANG BAY") {
                             stClass = "st-live";
                             statusText = "🛫 ĐANG BAY"; 
@@ -202,9 +205,27 @@
         btnSave.onclick = () => {
             const airport = airportInput.value.toUpperCase().trim();
             const date = dateInput.value;
-            set(ref(db, 'settings'), { airport_code: airport, scan_date: date, scan_interval: parseInt(intervalInput.value) || 2 });
+            set(ref(db, 'settings'), { airport_code: airport, scan_date: date, scan_interval: parseInt(intervalInput.value) || 2, force_scan: false });
             connectToDatabase(airport, date);
-            alert(`Đang tải dữ liệu ${airport} ngày ${date}...`);
+            alert(`Đã lưu!`);
+        };
+
+        // Logic Nút Bấm 1 Lần [cite: 2026-01-21]
+        btnFlashScan.onclick = () => {
+            // Gửi lệnh lên Firebase
+            update(ref(db, 'settings'), { force_scan: true });
+            
+            // Hiệu ứng phản hồi
+            btnFlashScan.innerText = "⏳ ĐANG CHỜ 15S...";
+            btnFlashScan.style.background = "#555"; 
+            
+            // Sau 20s (15s chờ + 5s xử lý) tự trả về trạng thái cũ
+            setTimeout(() => {
+                btnFlashScan.innerText = "🚀 QUÉT NGAY (+15s)";
+                btnFlashScan.style.background = "#ff0055"; 
+            }, 20000);
+            
+            alert("Đã gửi lệnh! Robot sẽ chờ 15 giây rồi quét dữ liệu mới nhất.");
         };
     </script>
 </body>

@@ -1,12 +1,79 @@
-<h2>✈️ PLEIKU AIRPORT REALTIME (A.3)</h2>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar A.29 - Database Direct</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
+        h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
+        
+        .settings-panel {
+            background: #ffffff; padding: 15px; margin-bottom: 12px; border-radius: 12px; 
+            display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 10px;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.1);
+        }
+        .settings-group { display: flex; flex-direction: column; gap: 4px; }
+        .settings-panel label { font-size: 11px; color: #334155; font-weight: 800; text-align: center; text-transform: uppercase; }
+        
+        .settings-panel input { 
+            height: 48px; padding: 0 10px; border-radius: 6px; border: 2px solid #cbd5e1; 
+            background: #ffffff !important; color: #0f172a !important;
+            font-weight: 800; font-size: 16px; text-align: center; box-sizing: border-box;
+        }
+        #airport-code { width: 70px; text-transform: uppercase; border-color: #3b82f6; }
+        #scan-date { width: 145px; }
+        #scan-interval { width: 60px; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        #btn-save { 
+            height: 48px; padding: 0 25px; border-radius: 6px; border: none;
+            background: #10b981; color: white; font-weight: 900; font-size: 15px;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .summary-bar { text-align: right; font-size: 14px; color: #facc15; margin-bottom: 5px; font-weight: bold; padding-right: 5px; }
+        .table-wrapper { background: #161b22; border-radius: 8px; border: 1px solid #30363d; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #21262d; color: #94a3b8; padding: 12px 4px; text-align: left; font-size: 11px; text-transform: uppercase; }
+        td { padding: 12px 4px; border-bottom: 1px solid #30363d; vertical-align: middle; }
+        
+        .flight-no { font-weight: 800; color: #38bdf8; font-size: 16px; }
+        .route-text { font-weight: 800; color: #fbbf24; font-size: 14px; }
+        .time-group { display: flex; flex-direction: column; line-height: 1.4; }
+        .real-time { margin-top: 6px; font-weight: bold; color: #4ade80; font-size: 14px; display: block; }
+
+        .status-pill { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-align: center; margin-top: 5px; }
+        .st-completed { background-color: #AEE2FF; color: #7a5c3e; }
+        .st-live, .st-plan { background-color: #EADDCA; color: #0096FF; }
+
+        .pair-blue { background: rgba(56, 189, 248, 0.2); border-left: 5px solid #38bdf8; }
+        .pair-brown { background: rgba(217, 119, 6, 0.2); border-left: 5px solid #d97706; }
+        .standalone { border-left: 5px solid #475569; }
+    </style>
+</head>
+<body>
+
+    <h2>✈️ DIRECT DATABASE RADAR (A.29)</h2>
+
+    <div class="settings-panel">
+        <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
+        <div class="settings-group"><label>Ngày</label><input type="date" id="scan-date"></div>
+        <div class="settings-group"><label>Phút</label><input type="number" id="scan-interval"></div>
+        <button id="btn-save">TẢI DỮ LIỆU</button>
+    </div>
+
+    <div class="summary-bar" id="total-flights">Tổng: 0 chuyến</div>
+
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
-                    <th>Chuyến bay</th>
-                    <th>Đăng bạ (Reg)</th>
-                    <th>Lộ trình (IATA)</th> <th>Cất cánh (S/A)</th>
-                    <th>Hạ cánh (S/A)</th>
+                    <th style="text-align:center">#</th>
+                    <th>Chuyến/Reg</th>
+                    <th>Lộ trình/Time</th>
+                    <th>Cất cánh</th>
+                    <th>Hạ cánh</th>
                 </tr>
             </thead>
             <tbody id="flight-data"></tbody>
@@ -14,29 +81,110 @@
     </div>
 
     <script type="module">
-        // ... (giữ nguyên initializeApp và config cũ của anh) ...
-        onValue(ref(db, 'flight_logs'), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-            const flights = Object.values(data).sort((a, b) => a.raw_sort_time - b.raw_sort_time);
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, set, get, off } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-            flightTable.innerHTML = flights.map(f => `
-                <tr>
-                    <td class="flight-no">${f.flight}</td>
-                    <td class="reg-no">${f.reg}</td>
-                    <td class="icao-code">${f.origin_iata} ➔ ${f.dest_iata}</td> <td>
-                        <div class="time-group">
-                            <span class="sched">S: ${f.dep_sched}</span>
-                            <span class="real">A: ${f.dep_real}</span>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="time-group">
-                            <span class="sched">S: ${f.arr_sched}</span>
-                            <span class="real">A: ${f.arr_real}</span>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+        const firebaseConfig = { databaseURL: "https://pleiku-flight-radar-default-rtdb.asia-southeast1.firebasedatabase.app", projectId: "pleiku-flight-radar" };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        const airportInput = document.getElementById('airport-code');
+        const dateInput = document.getElementById('scan-date');
+        const intervalInput = document.getElementById('scan-interval');
+        const btnSave = document.getElementById('btn-save');
+
+        const today = new Date(new Date().getTime() + 7*60*60*1000).toISOString().split('T')[0];
+        let currentRef = null; // Biến để quản lý luồng dữ liệu
+
+        // Hàm kết nối trực tiếp vào kho dữ liệu mới [cite: 2026-01-21]
+        function connectToDatabase(airport, date) {
+            if (currentRef) off(currentRef); // Ngắt kết nối cũ
+            const path = `database_flights/${airport}/${date}`;
+            currentRef = ref(db, path);
+
+            onValue(currentRef, (snapshot) => {
+                const data = snapshot.val();
+                if (!data) {
+                    document.getElementById('flight-data').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa">Chưa có dữ liệu cho ngày này...</td></tr>';
+                    document.getElementById('total-flights').innerText = "Tổng: 0 chuyến";
+                    return;
+                }
+                const rawFlights = Object.values(data).sort((a, b) => a.raw_sort_time - b.raw_sort_time);
+                
+                // --- Logic Ghép Cặp (Giữ nguyên A.28) ---
+                let groups = [];
+                let used = new Set();
+                rawFlights.forEach(f => {
+                    const fId = f.flight + "_" + f.raw_sort_time + "_" + f.type;
+                    if (used.has(fId)) return;
+                    let currentGroup = [f];
+                    used.add(fId);
+                    
+                    if (f.type === 'arr') {
+                        const pair = rawFlights.find(p => {
+                            const pId = p.flight + "_" + p.raw_sort_time + "_" + p.type;
+                            if (p.type !== 'dep' || used.has(pId)) return false;
+                            const sameReg = f.reg !== "Plan" && f.reg !== "N/A" && p.reg === f.reg;
+                            const sequential = f.flight.replace(/[0-9]/g, '') === p.flight.replace(/[0-9]/g, '') && Math.abs(parseInt(p.flight.replace(/\D/g, '')) - parseInt(f.flight.replace(/\D/g, ''))) === 1;
+                            return (sameReg || sequential) && p.o_iata === f.d_iata && p.d_iata === f.o_iata;
+                        });
+                        if (pair) { currentGroup.push(pair); used.add(pair.flight + "_" + pair.raw_sort_time + "_" + pair.type); }
+                    }
+                    groups.push(currentGroup);
+                });
+
+                document.getElementById('total-flights').innerText = `Tổng: ${rawFlights.length} chuyến`;
+                
+                let html = "";
+                let sttCounter = 1; 
+                let pairCounter = 0;
+                groups.forEach((group) => {
+                    const colorClass = group.length > 1 ? (pairCounter % 2 === 0 ? "pair-blue" : "pair-brown") : "standalone";
+                    if (group.length > 1) pairCounter++;
+
+                    group.forEach((f) => {
+                        let stClass = "st-plan";
+                        if (f.status === "ĐÃ HOÀN THÀNH") stClass = "st-completed";
+                        else if (f.status === "ĐANG BAY") stClass = "st-live";
+
+                        const depDisp = f.dep_real !== "--:--" ? `<span class="real-time">A: ${f.dep_real}</span>` : "";
+                        const arrDisp = f.arr_real !== "--:--" ? `<span class="real-time">A: ${f.arr_real}</span>` : "";
+
+                        html += `
+                        <tr class="${colorClass}">
+                            <td style="text-align:center; font-weight:bold; color:#94a3b8">${sttCounter++}</td>
+                            <td><span class="flight-no">${f.flight}</span><span style="color:#facc15; font-weight:bold; display:block; font-size:12px">${f.reg}</span></td>
+                            <td><div class="route-text">${f.route}</div><div style="font-size:10px; color:#94a3b8">${f.aircraft} | ⏱${f.flight_time}</div></td>
+                            <td><div class="time-group"><span style="font-size:11px; color:#94a3b8">S: ${f.dep_sched}</span>${depDisp}</div></td>
+                            <td><div class="time-group"><span style="font-size:11px; color:#94a3b8">S: ${f.arr_sched}</span>${arrDisp}</div><div class="status-pill ${stClass}">${f.status}</div></td>
+                        </tr>`;
+                    });
+                });
+                document.getElementById('flight-data').innerHTML = html;
+            });
+        }
+
+        get(ref(db, 'settings')).then((snapshot) => {
+            if (snapshot.exists()) {
+                const s = snapshot.val();
+                airportInput.value = s.airport_code || "PXU";
+                dateInput.value = s.scan_date || today;
+                intervalInput.value = s.scan_interval || 2;
+                // Kết nối ngay khi tải trang
+                connectToDatabase(airportInput.value.toUpperCase(), dateInput.value);
+            } else { 
+                dateInput.value = today;
+                connectToDatabase("PXU", today);
+            }
         });
+
+        btnSave.onclick = () => {
+            const airport = airportInput.value.toUpperCase().trim();
+            const date = dateInput.value;
+            set(ref(db, 'settings'), { airport_code: airport, scan_date: date, scan_interval: parseInt(intervalInput.value) || 2 });
+            connectToDatabase(airport, date); // Kết nối lại khi nhấn nút
+            alert(`Đang tải dữ liệu ${airport} ngày ${date}...`);
+        };
     </script>
+</body>
+</html>

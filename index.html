@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.30 - Visual Upgrade</title>
+    <title>Radar A.31 - Blinking Live Status</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
@@ -45,16 +45,23 @@
 
         .status-pill { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 900; text-align: center; margin-top: 5px; }
         
-        /* CẬP NHẬT MÀU SẮC TRẠNG THÁI (A.30) [cite: 2026-01-21] */
-        .st-completed { background-color: #AEE2FF; color: #7a5c3e; } /* Xanh nhạt, Nâu đất */
-        .st-plan { background-color: #EADDCA; color: #0096FF; }      /* Nâu nhạt, Xanh dương */
+        .st-completed { background-color: #AEE2FF; color: #7a5c3e; } 
+        .st-plan { background-color: #EADDCA; color: #0096FF; }      
         
-        /* ĐANG BAY: Nền Xanh Blue thật sáng (Aqua/Cyan) - Chữ Nâu đất thật sáng (Bronze) */
+        /* --- HIỆU ỨNG NHẤP NHÁY CHO "ĐANG BAY" (A.31) --- */
+        @keyframes blinker {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.98); } /* Mờ đi chút và co lại nhẹ */
+            100% { opacity: 1; transform: scale(1); }
+        }
+
         .st-live { 
-            background-color: #00FFFF; /* Xanh Cyan cực sáng */
-            color: #8B4513;            /* Nâu đất đậm rõ nét */
-            border: 1px solid #00D4FF; /* Viền nhẹ cho nổi */
-            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); /* Hiệu ứng phát sáng nhẹ */
+            background-color: #00FFFF;
+            color: #8B4513;            
+            border: 1px solid #00D4FF; 
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+            /* Kích hoạt animation 2s vô tận */
+            animation: blinker 2s ease-in-out infinite; 
         }
 
         .pair-blue { background: rgba(56, 189, 248, 0.2); border-left: 5px solid #38bdf8; }
@@ -64,7 +71,7 @@
 </head>
 <body>
 
-    <h2>✈️ DIRECT DATABASE RADAR (A.30)</h2>
+    <h2>✈️ DIRECT DATABASE RADAR (A.31)</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
@@ -151,7 +158,6 @@
                     if (group.length > 1) pairCounter++;
 
                     group.forEach((f) => {
-                        // LOGIC HIỂN THỊ TRẠNG THÁI + ICON (A.30) [cite: 2026-01-21]
                         let stClass = "st-plan";
                         let statusText = f.status;
 
@@ -159,7 +165,7 @@
                             stClass = "st-completed";
                         } else if (f.status === "ĐANG BAY") {
                             stClass = "st-live";
-                            statusText = "🛫 ĐANG BAY"; // Thêm icon máy bay cất cánh
+                            statusText = "🛫 ĐANG BAY"; 
                         }
 
                         const depDisp = f.dep_real !== "--:--" ? `<span class="real-time">A: ${f.dep_real}</span>` : "";

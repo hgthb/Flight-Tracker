@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.29 - Database Direct</title>
+    <title>Radar A.30 - Visual Upgrade</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
@@ -43,9 +43,19 @@
         .time-group { display: flex; flex-direction: column; line-height: 1.4; }
         .real-time { margin-top: 6px; font-weight: bold; color: #4ade80; font-size: 14px; display: block; }
 
-        .status-pill { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-align: center; margin-top: 5px; }
-        .st-completed { background-color: #AEE2FF; color: #7a5c3e; }
-        .st-live, .st-plan { background-color: #EADDCA; color: #0096FF; }
+        .status-pill { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 900; text-align: center; margin-top: 5px; }
+        
+        /* CẬP NHẬT MÀU SẮC TRẠNG THÁI (A.30) [cite: 2026-01-21] */
+        .st-completed { background-color: #AEE2FF; color: #7a5c3e; } /* Xanh nhạt, Nâu đất */
+        .st-plan { background-color: #EADDCA; color: #0096FF; }      /* Nâu nhạt, Xanh dương */
+        
+        /* ĐANG BAY: Nền Xanh Blue thật sáng (Aqua/Cyan) - Chữ Nâu đất thật sáng (Bronze) */
+        .st-live { 
+            background-color: #00FFFF; /* Xanh Cyan cực sáng */
+            color: #8B4513;            /* Nâu đất đậm rõ nét */
+            border: 1px solid #00D4FF; /* Viền nhẹ cho nổi */
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.4); /* Hiệu ứng phát sáng nhẹ */
+        }
 
         .pair-blue { background: rgba(56, 189, 248, 0.2); border-left: 5px solid #38bdf8; }
         .pair-brown { background: rgba(217, 119, 6, 0.2); border-left: 5px solid #d97706; }
@@ -54,7 +64,7 @@
 </head>
 <body>
 
-    <h2>✈️ DIRECT DATABASE RADAR (A.29)</h2>
+    <h2>✈️ DIRECT DATABASE RADAR (A.30)</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
@@ -94,24 +104,22 @@
         const btnSave = document.getElementById('btn-save');
 
         const today = new Date(new Date().getTime() + 7*60*60*1000).toISOString().split('T')[0];
-        let currentRef = null; // Biến để quản lý luồng dữ liệu
+        let currentRef = null;
 
-        // Hàm kết nối trực tiếp vào kho dữ liệu mới [cite: 2026-01-21]
         function connectToDatabase(airport, date) {
-            if (currentRef) off(currentRef); // Ngắt kết nối cũ
+            if (currentRef) off(currentRef);
             const path = `database_flights/${airport}/${date}`;
             currentRef = ref(db, path);
 
             onValue(currentRef, (snapshot) => {
                 const data = snapshot.val();
                 if (!data) {
-                    document.getElementById('flight-data').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa">Chưa có dữ liệu cho ngày này...</td></tr>';
+                    document.getElementById('flight-data').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#aaa">Chưa có dữ liệu...</td></tr>';
                     document.getElementById('total-flights').innerText = "Tổng: 0 chuyến";
                     return;
                 }
                 const rawFlights = Object.values(data).sort((a, b) => a.raw_sort_time - b.raw_sort_time);
                 
-                // --- Logic Ghép Cặp (Giữ nguyên A.28) ---
                 let groups = [];
                 let used = new Set();
                 rawFlights.forEach(f => {
@@ -143,9 +151,16 @@
                     if (group.length > 1) pairCounter++;
 
                     group.forEach((f) => {
+                        // LOGIC HIỂN THỊ TRẠNG THÁI + ICON (A.30) [cite: 2026-01-21]
                         let stClass = "st-plan";
-                        if (f.status === "ĐÃ HOÀN THÀNH") stClass = "st-completed";
-                        else if (f.status === "ĐANG BAY") stClass = "st-live";
+                        let statusText = f.status;
+
+                        if (f.status === "ĐÃ HOÀN THÀNH") {
+                            stClass = "st-completed";
+                        } else if (f.status === "ĐANG BAY") {
+                            stClass = "st-live";
+                            statusText = "🛫 ĐANG BAY"; // Thêm icon máy bay cất cánh
+                        }
 
                         const depDisp = f.dep_real !== "--:--" ? `<span class="real-time">A: ${f.dep_real}</span>` : "";
                         const arrDisp = f.arr_real !== "--:--" ? `<span class="real-time">A: ${f.arr_real}</span>` : "";
@@ -156,7 +171,7 @@
                             <td><span class="flight-no">${f.flight}</span><span style="color:#facc15; font-weight:bold; display:block; font-size:12px">${f.reg}</span></td>
                             <td><div class="route-text">${f.route}</div><div style="font-size:10px; color:#94a3b8">${f.aircraft} | ⏱${f.flight_time}</div></td>
                             <td><div class="time-group"><span style="font-size:11px; color:#94a3b8">S: ${f.dep_sched}</span>${depDisp}</div></td>
-                            <td><div class="time-group"><span style="font-size:11px; color:#94a3b8">S: ${f.arr_sched}</span>${arrDisp}</div><div class="status-pill ${stClass}">${f.status}</div></td>
+                            <td><div class="time-group"><span style="font-size:11px; color:#94a3b8">S: ${f.arr_sched}</span>${arrDisp}</div><div class="status-pill ${stClass}">${statusText}</div></td>
                         </tr>`;
                     });
                 });
@@ -170,7 +185,6 @@
                 airportInput.value = s.airport_code || "PXU";
                 dateInput.value = s.scan_date || today;
                 intervalInput.value = s.scan_interval || 2;
-                // Kết nối ngay khi tải trang
                 connectToDatabase(airportInput.value.toUpperCase(), dateInput.value);
             } else { 
                 dateInput.value = today;
@@ -182,7 +196,7 @@
             const airport = airportInput.value.toUpperCase().trim();
             const date = dateInput.value;
             set(ref(db, 'settings'), { airport_code: airport, scan_date: date, scan_interval: parseInt(intervalInput.value) || 2 });
-            connectToDatabase(airport, date); // Kết nối lại khi nhấn nút
+            connectToDatabase(airport, date);
             alert(`Đang tải dữ liệu ${airport} ngày ${date}...`);
         };
     </script>

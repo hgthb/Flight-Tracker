@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.31 - Blinking Live Status</title>
+    <title>Radar A.32 - Symbol Update</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
@@ -48,10 +48,10 @@
         .st-completed { background-color: #AEE2FF; color: #7a5c3e; } 
         .st-plan { background-color: #EADDCA; color: #0096FF; }      
         
-        /* --- HIỆU ỨNG NHẤP NHÁY CHO "ĐANG BAY" (A.31) --- */
+        /* Animation nhấp nháy cho ĐANG BAY */
         @keyframes blinker {
             0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(0.98); } /* Mờ đi chút và co lại nhẹ */
+            50% { opacity: 0.6; transform: scale(0.98); }
             100% { opacity: 1; transform: scale(1); }
         }
 
@@ -60,7 +60,6 @@
             color: #8B4513;            
             border: 1px solid #00D4FF; 
             box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
-            /* Kích hoạt animation 2s vô tận */
             animation: blinker 2s ease-in-out infinite; 
         }
 
@@ -71,7 +70,7 @@
 </head>
 <body>
 
-    <h2>✈️ DIRECT DATABASE RADAR (A.31)</h2>
+    <h2>✈️ DIRECT DATABASE RADAR (A.32)</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
@@ -161,8 +160,10 @@
                         let stClass = "st-plan";
                         let statusText = f.status;
 
+                        // LOGIC CẬP NHẬT TEXT VÀ ICON (A.32)
                         if (f.status === "ĐÃ HOÀN THÀNH") {
                             stClass = "st-completed";
+                            statusText = "🛬 HOÀN THÀNH"; // Cắt ngắn và thêm icon hạ cánh
                         } else if (f.status === "ĐANG BAY") {
                             stClass = "st-live";
                             statusText = "🛫 ĐANG BAY"; 

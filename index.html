@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar A.36 - Anti-Spam</title>
+    <title>Radar A.37 - Silent Click</title>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0b0f19; color: white; margin: 0; padding: 5px; }
         h2 { text-align: center; color: #00d4ff; font-size: 1.2rem; margin: 8px 0; }
@@ -32,7 +32,7 @@
             cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        /* NÚT QUÉT NGAY - PHIÊN BẢN NEON SIÊU SÁNG */
+        /* NÚT QUÉT NGAY - NEON STYLE */
         #btn-flash-scan {
             height: 48px; padding: 0 20px; border-radius: 6px; border: 2px solid #ff99bb;
             background: #ff0055; /* Đỏ hồng Neon */
@@ -42,13 +42,13 @@
             animation: pulse-neon 2s infinite;
             transition: all 0.3s ease;
         }
-        /* Style cho lúc bị khóa (Disabled) [cite: 2026-01-21] */
+        /* Style cho lúc bị khóa (Disabled) */
         #btn-flash-scan:disabled {
             background: #475569; /* Màu xám */
             border-color: #64748b;
-            cursor: not-allowed; /* Biểu tượng cấm */
+            cursor: not-allowed; 
             box-shadow: none;
-            animation: none; /* Tắt nhấp nháy */
+            animation: none; 
             opacity: 0.7;
         }
 
@@ -83,7 +83,7 @@
 </head>
 <body>
 
-    <h2>✈️ RADAR CONTROL A.36</h2>
+    <h2>✈️ RADAR CONTROL A.37</h2>
 
     <div class="settings-panel">
         <div class="settings-group"><label>Cảng</label><input type="text" id="airport-code" maxlength="3"></div>
@@ -221,22 +221,22 @@
             alert(`Đã lưu!`);
         };
 
-        // Logic Nút Bấm Anti-Spam (A.36) [cite: 2026-01-21]
+        // Logic Nút Bấm KHÔNG CÓ ALERT (A.37)
         btnFlashScan.onclick = () => {
             // 1. Gửi lệnh
             update(ref(db, 'settings'), { force_scan: true });
             
-            // 2. KHÓA NÚT NGAY LẬP TỨC
-            btnFlashScan.disabled = true; // Thuộc tính disable thật
+            // 2. KHÓA NÚT NGAY LẬP TỨC (Không hiện Alert nữa)
+            btnFlashScan.disabled = true; 
             btnFlashScan.innerText = "⏳ CHỜ 20s...";
             
-            // 3. Mở khóa sau 20 giây (15s chờ + 5s an toàn)
+            // 3. Mở khóa sau 20 giây
             setTimeout(() => {
-                btnFlashScan.disabled = false; // Mở lại
+                btnFlashScan.disabled = false; 
                 btnFlashScan.innerText = "🚀 QUÉT NGAY (+15s)";
             }, 20000); 
             
-            alert("Đã gửi lệnh! Nút quét sẽ tạm khóa trong 20 giây để chờ robot xử lý.");
+            // Đã xóa dòng alert()
         };
     </script>
 </body>
